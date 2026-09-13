@@ -72,26 +72,16 @@ def test_quote_similarity_exact_after_normalization():
     assert quote_similarity("Alpha\u00a0Beta   Gamma", "alpha beta gamma") == 1.0
 
 
-def test_claim_support_threshold_uses_content_stems():
+def test_short_claim_skips_lexical_support_gate():
     source = Source("S1", "The court dismissed the claim because causation was not proven.")
-    claim = Claim(
-        "C1",
-        "The and of liability damages.",
-        "The court dismissed the claim because causation was not proven.",
-        ("S1",),
-    )
+    claim = Claim("C1", "Liability remains.", "The court dismissed the claim because causation was not proven.", ("S1",))
     result = verify_claim(claim, [source])
     assert "claim_not_supported" not in {x.code for x in result.findings}
 
 
-def test_claim_support_minimum_content_stems_is_configurable():
+def test_content_stem_threshold_is_configurable():
     source = Source("S1", "The court dismissed the claim because causation was not proven.")
-    claim = Claim(
-        "C1",
-        "The and of liability damages.",
-        "The court dismissed the claim because causation was not proven.",
-        ("S1",),
-    )
+    claim = Claim("C1", "Liability remains.", "The court dismissed the claim because causation was not proven.", ("S1",))
     result = verify_claim(claim, [source], Policy(min_content_stems_for_support=2))
     assert "claim_not_supported" in {x.code for x in result.findings}
 

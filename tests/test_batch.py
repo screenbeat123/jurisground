@@ -17,3 +17,9 @@ def test_batch_unverified_when_no_failures_but_missing_citation():
     claims = [Claim("C1", "The agreement exists.", "The source contains an adequately long statement about the agreement.", ())]
     result = verify_batch(claims, [source])
     assert result["status"] == "unverified"
+
+
+def test_empty_batch_is_unverified():
+    result = verify_batch([], [])
+    assert result["status"] == "unverified"
+    assert result["summary"] == {"total": 0, "pass": 0, "fail": 0, "unverified": 0}

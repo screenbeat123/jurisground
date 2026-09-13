@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.2
+
+- remove two misleading Policy switches that did not have sound public semantics;
+- treat an empty batch as `unverified` instead of `pass`;
+- remove unused finding severity plumbing and the unused Polish legal adapter;
+- trim synthetic regression cases to distinct behaviors and remove the duplicate benchmark/report path;
+- replace artificial test wording with natural examples;
+- clarify that the public repository was extracted from a longer-lived parent project.
+
 ## 0.1.1
 
 - base lexical-support gating on normalized content stems instead of raw whitespace-separated words;

@@ -2,11 +2,13 @@
 
 **Verify that LLM-generated claims are actually supported by their cited sources.**
 
-JurisGround checks a simple but important question: **does the generated claim actually come from the sources it cites?**
+[![CI](https://github.com/screenbeat123/jurisground/actions/workflows/ci.yml/badge.svg)](https://github.com/screenbeat123/jurisground/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.10--3.12-blue)
+![License](https://img.shields.io/badge/license-Apache--2.0-blue)
 
 A real citation is not enough. A model can cite an existing document while changing a number, inventing a quotation, or making a stronger claim than the evidence supports. JurisGround adds a deterministic verification layer between generation and publication.
 
-> Status: early OSS extraction from a larger working legal-AI system. v0.1 is intentionally small and has no hosted-model dependency.
+> JurisGround is a standalone OSS extraction from a larger working legal-AI system. v0.1 is intentionally small and has no hosted-model dependency.
 
 ## What it checks
 
@@ -41,7 +43,15 @@ A quote can exist in the source but still fail to support the generated claim. J
 ## Install
 
 ```bash
+git clone https://github.com/screenbeat123/jurisground.git
+cd jurisground
 pip install -e .
+```
+
+For development:
+
+```bash
+pip install -e .[dev]
 ```
 
 ## CLI
@@ -51,6 +61,34 @@ jurisground examples/legal_grounding_demo.json --pretty
 ```
 
 The CLI exits with `0` only when the whole batch passes. `fail` and `unverified` return a non-zero exit code, which makes the gate usable in CI or agent workflows.
+
+Example failure output:
+
+```json
+{
+  "status": "fail",
+  "summary": {
+    "total": 1,
+    "pass": 0,
+    "fail": 1,
+    "unverified": 0
+  },
+  "claims": [
+    {
+      "claim_id": "C1",
+      "status": "fail",
+      "findings": [
+        {
+          "code": "quote_not_found"
+        },
+        {
+          "code": "number_not_in_source"
+        }
+      ]
+    }
+  ]
+}
+```
 
 ## Python
 

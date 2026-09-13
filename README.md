@@ -8,7 +8,9 @@
 
 A real citation is not enough. A model can cite an existing document while changing a number, inventing a quotation, or making a stronger claim than the evidence supports. JurisGround adds a deterministic verification layer between generation and publication.
 
-> JurisGround is a standalone OSS extraction from a larger working legal-AI system. v0.1 is intentionally small and has no hosted-model dependency.
+> JurisGround is the public extraction of grounding checks from a longer-lived private legal-AI project. The Git history in this repository starts at the extraction point; it does not represent the age or full history of the parent system.
+
+The public package is intentionally small and has no hosted-model dependency.
 
 ## What it checks
 
@@ -62,7 +64,7 @@ jurisground examples/legal_grounding_demo.json --pretty
 
 The CLI exits with `0` only when the whole batch passes. `fail` and `unverified` return a non-zero exit code, which makes the gate usable in CI or agent workflows.
 
-Example failure output:
+Abbreviated failure output:
 
 ```json
 {
@@ -94,18 +96,15 @@ Example failure output:
 
 The public API exposes `Source`, `Claim`, `Policy`, `verify_claim`, and `verify_batch`.
 
-## Adversarial regression suite
+## Regression cases
 
-The repository includes a synthetic regression suite covering fabricated quotations, changed numeric facts, missing citations, fuzzy/OCR-like text, unsupported claims, and valid grounded claims.
+The repository includes a small synthetic regression set covering fabricated quotations, changed numeric facts, missing citations, OCR-like text, unsupported claims, and valid grounded claims.
 
 Run:
 
 ```bash
 pytest
-python benchmarks/run_adversarial.py
 ```
-
-See `reports/eval_report.md` for the current generated report.
 
 **This is a regression suite, not a real-world legal accuracy benchmark.**
 
@@ -121,19 +120,18 @@ See `reports/eval_report.md` for the current generated report.
 
 JurisGround verifies evidence linkage. It does **not** establish that a source is true, current, authoritative, legally controlling, complete, or correctly interpreted. A PASS means the configured grounding checks passed — not that the claim is factually or legally correct.
 
-The lexical support score in v0.1 is intentionally simple and auditable. It is a guardrail, not semantic entailment. Future versions may add optional model-based entailment while keeping deterministic checks independently visible.
+The lexical support score is intentionally simple and auditable. It is a guardrail, not semantic entailment. The default thresholds are heuristic baselines carried over from the parent system; they are configurable and are not presented as universally calibrated values.
 
 ## Why legal AI first?
 
-The project was extracted from a local-first Polish legal research/drafting system where unsupported claims, wrong amounts, and fabricated quotations have disproportionate cost. The core is domain-neutral; `jurisground.adapters.pl_legal` keeps Polish legal normalization separate from the generic verifier.
+The parent project is a local-first Polish legal research and drafting system where unsupported claims, wrong amounts, and fabricated quotations have disproportionate cost. JurisGround extracts the domain-neutral verification core. Domain-specific normalization stays outside the public package until there is a reusable adapter with a clear API.
 
 ## Roadmap
 
 - richer source-span provenance;
 - optional JSON Schema for agent outputs;
-- configurable domain adapters;
+- larger public regression corpus based on reproduced failures;
 - NLI/LLM entailment as an optional second opinion, never a replacement for deterministic checks;
-- larger open adversarial corpus;
 - PR bot that reports grounding regressions.
 
 ## License

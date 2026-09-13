@@ -16,7 +16,7 @@ def verify_claim(claim: Claim, sources: list[Source], policy: Policy | None = No
     source_by_id = _source_map(sources)
     findings: list[Finding] = []
 
-    if policy.require_source_ids and not claim.source_ids:
+    if not claim.source_ids:
         findings.append(Finding("missing_source_ids", "Claim has no cited source IDs."))
         return ClaimResult(claim.id, "unverified", findings=findings)
 
@@ -27,7 +27,7 @@ def verify_claim(claim: Claim, sources: list[Source], policy: Policy | None = No
     if not cited:
         return ClaimResult(claim.id, "unverified", findings=findings)
 
-    if policy.require_quote and len(claim.quote.strip()) < policy.min_quote_chars:
+    if len(claim.quote.strip()) < policy.min_quote_chars:
         findings.append(Finding("quote_too_short", "Quote is missing or too short to verify."))
         return ClaimResult(claim.id, "unverified", findings=findings)
 
@@ -42,7 +42,7 @@ def verify_claim(claim: Claim, sources: list[Source], policy: Policy | None = No
         ))
 
     source_corpus = "\n".join("\n".join(source.page_texts()) for source in cited)
-    quote_support = claim_support(claim.text, claim.quote) if claim.quote else 0.0
+    quote_support = claim_support(claim.text, claim.quote)
     source_support = claim_support(claim.text, source_corpus)
 
     claim_numbers = number_tokens(claim.text)
@@ -77,8 +77,7 @@ def verify_claim(claim: Claim, sources: list[Source], policy: Policy | None = No
         ))
 
     if (
-        claim.quote
-        and len(claim.text) > max(120, len(claim.quote) * policy.max_expansion_ratio)
+        len(claim.text) > max(120, len(claim.quote) * policy.max_expansion_ratio)
         and quote_support < policy.min_expansion_support
     ):
         findings.append(Finding(
@@ -87,8 +86,7 @@ def verify_claim(claim: Claim, sources: list[Source], policy: Policy | None = No
             details={"support": round(quote_support, 3)},
         ))
 
-    errors = [finding for finding in findings if finding.severity == "error"]
-    status = "fail" if errors else "pass"
+    status = "fail" if findings else "pass"
     return ClaimResult(
         claim_id=claim.id,
         status=status,
@@ -105,6 +103,13 @@ def verify_claim(claim: Claim, sources: list[Source], policy: Policy | None = No
 
 
 def verify_batch(claims: list[Claim], sources: list[Source], policy: Policy | None = None) -> dict:
+    if not claims:
+        return {
+            "status": "unverified",
+            "summary": {"total": 0, "pass": 0, "fail": 0, "unverified": 0},
+            "claims": [],
+        }
+
     results = [verify_claim(claim, sources, policy) for claim in claims]
     if any(result.status == "fail" for result in results):
         status = "fail"

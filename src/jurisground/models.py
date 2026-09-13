@@ -34,8 +34,6 @@ class Policy:
     max_expansion_ratio: float = 1.45
     min_expansion_support: float = 0.72
     min_quote_chars: int = 10
-    require_source_ids: bool = True
-    require_quote: bool = True
     require_numbers_in_quote: bool = True
     require_numbers_in_source: bool = True
 
@@ -44,7 +42,6 @@ class Policy:
 class Finding:
     code: str
     message: str
-    severity: Literal["error", "warning", "info"] = "error"
     details: dict[str, Any] = field(default_factory=dict)
 
 

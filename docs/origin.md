@@ -1,7 +1,7 @@
 # Project origin
 
-JurisGround was extracted and generalized from the verification layer of a larger local-first Polish legal-AI research and drafting system.
+JurisGround is new as a public repository, not as a code path.
 
-The parent system had accumulated deterministic checks around quote recovery, numeric provenance, source IDs, claim-to-evidence support, fail-closed document generation, and synthetic regression tests. JurisGround isolates the reusable part of that work into a small open-source package.
+It was extracted and generalized from verification logic in a longer-lived local-first Polish legal-AI research and drafting system. The parent system accumulated checks around quote recovery, numeric provenance, source IDs, claim-to-evidence support, and fail-closed document generation before this repository was created.
 
-This repository intentionally excludes client material, private datasets, legal corpora, vector databases, user interfaces, and the parent application's document-generation workflow.
+The Git history here starts at the extraction point. It intentionally does not include the parent application's private history, client material, legal corpora, vector databases, user interfaces, or document-generation workflow.

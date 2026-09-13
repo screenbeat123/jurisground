@@ -70,3 +70,42 @@ def test_claim_can_be_supported_by_source_but_not_quote():
 
 def test_quote_similarity_exact_after_normalization():
     assert quote_similarity("Alpha\u00a0Beta   Gamma", "alpha beta gamma") == 1.0
+
+
+def test_claim_support_threshold_uses_content_stems():
+    source = Source("S1", "The court dismissed the claim because causation was not proven.")
+    claim = Claim(
+        "C1",
+        "The and of liability damages.",
+        "The court dismissed the claim because causation was not proven.",
+        ("S1",),
+    )
+    result = verify_claim(claim, [source])
+    assert "claim_not_supported" not in {x.code for x in result.findings}
+
+
+def test_claim_support_minimum_content_stems_is_configurable():
+    source = Source("S1", "The court dismissed the claim because causation was not proven.")
+    claim = Claim(
+        "C1",
+        "The and of liability damages.",
+        "The court dismissed the claim because causation was not proven.",
+        ("S1",),
+    )
+    result = verify_claim(claim, [source], Policy(min_content_stems_for_support=2))
+    assert "claim_not_supported" in {x.code for x in result.findings}
+
+
+def test_expansion_support_threshold_is_configurable():
+    quote = "The contractor repaired the roof after the storm and replaced damaged tiles."
+    source = Source("S1", quote)
+    claim = Claim(
+        "C1",
+        "The contractor repaired the roof after the storm and replaced damaged tiles, and the work also included extensive additional structural repairs that were allegedly required throughout the entire building.",
+        quote,
+        ("S1",),
+    )
+    permissive = verify_claim(claim, [source], Policy(min_expansion_support=0.0, min_claim_support=0.0))
+    strict = verify_claim(claim, [source], Policy(min_expansion_support=1.0, min_claim_support=0.0))
+    assert "claim_expands_quote" not in {x.code for x in permissive.findings}
+    assert "claim_expands_quote" in {x.code for x in strict.findings}

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .claims import claim_support
 from .models import Claim, ClaimResult, Finding, Policy, Source
+from .normalize import content_stems
 from .numbers import number_tokens
 from .quotes import best_quote_match
 
@@ -67,15 +68,19 @@ def verify_claim(claim: Claim, sources: list[Source], policy: Policy | None = No
                 details={"numbers": missing_source_numbers},
             ))
 
-    stem_count = len([x for x in claim.text.split() if x.strip()])
-    if stem_count >= 3 and quote_support < policy.min_claim_support:
+    stem_count = len(content_stems(claim.text))
+    if stem_count >= policy.min_content_stems_for_support and quote_support < policy.min_claim_support:
         findings.append(Finding(
             "claim_not_supported",
             "The claim has insufficient lexical support in the cited quote.",
             details={"support": round(quote_support, 3), "threshold": policy.min_claim_support},
         ))
 
-    if claim.quote and len(claim.text) > max(120, len(claim.quote) * policy.max_expansion_ratio) and quote_support < 0.72:
+    if (
+        claim.quote
+        and len(claim.text) > max(120, len(claim.quote) * policy.max_expansion_ratio)
+        and quote_support < policy.min_expansion_support
+    ):
         findings.append(Finding(
             "claim_expands_quote",
             "The claim materially expands beyond the cited quotation.",

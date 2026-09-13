@@ -1,6 +1,6 @@
 # JurisGround
 
-**Deterministic source-grounding gates for LLM-generated high-stakes text.**
+**Verify that LLM-generated claims are actually supported by their cited sources.**
 
 JurisGround checks a simple but important question: **does the generated claim actually come from the sources it cites?**
 

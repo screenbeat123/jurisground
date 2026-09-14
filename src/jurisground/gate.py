@@ -31,14 +31,15 @@ def verify_claim(claim: Claim, sources: list[Source], policy: Policy | None = No
         findings.append(Finding("quote_too_short", "Quote is missing or too short to verify."))
         return ClaimResult(claim.id, "unverified", findings=findings)
 
-    matched_source_id, matched_page, quote_score = best_quote_match(claim.quote, cited)
-    matched_source = source_by_id.get(matched_source_id or "")
+    match = best_quote_match(claim.quote, cited)
+    matched_source = source_by_id.get(match.source_id or "")
     quote_threshold = policy.ocr_quote_threshold if (matched_source and matched_source.is_ocr) else policy.quote_threshold
-    if quote_score < quote_threshold:
+    quote_verified = match.score >= quote_threshold
+    if not quote_verified:
         findings.append(Finding(
             "quote_not_found",
             "The quoted text could not be verified in the cited source material.",
-            details={"score": round(quote_score, 3), "threshold": quote_threshold},
+            details={"score": round(match.score, 3), "threshold": quote_threshold},
         ))
 
     source_corpus = "\n".join("\n".join(source.page_texts()) for source in cited)
@@ -90,9 +91,13 @@ def verify_claim(claim: Claim, sources: list[Source], policy: Policy | None = No
     return ClaimResult(
         claim_id=claim.id,
         status=status,
-        matched_source_id=matched_source_id,
-        matched_page=matched_page,
-        quote_score=round(quote_score, 3),
+        matched_source_id=match.source_id,
+        matched_page=match.page,
+        quote_score=round(match.score, 3),
+        matched_text=match.text if quote_verified else None,
+        matched_start=match.start if quote_verified else None,
+        matched_end=match.end if quote_verified else None,
+        match_method=match.method if quote_verified else None,
         claim_support=round(quote_support, 3),
         source_support=round(source_support, 3),
         claim_numbers=claim_numbers,

@@ -15,6 +15,7 @@ The public package is intentionally small and has no hosted-model dependency.
 ## What it checks
 
 - **Quote integrity** — can the cited quotation be found in the cited source?
+- **Evidence location** — which source fragment matched, and where is it on the page?
 - **Numeric provenance** — do numeric facts in the claim occur in the quote and source?
 - **Claim-to-evidence support** — does the wording of the claim have measurable support in the cited evidence?
 - **Source provenance** — are cited source IDs present and resolvable?
@@ -96,6 +97,8 @@ Abbreviated failure output:
 
 The public API exposes `Source`, `Claim`, `Policy`, `verify_claim`, and `verify_batch`.
 
+A verified quote also returns `matched_text`, `matched_start`, `matched_end`, and `match_method`. Offsets are relative to the original matched page text and use normal Python slice semantics: `matched_start` is inclusive and `matched_end` is exclusive. `match_method` is `exact`, `normalized`, or `fuzzy`. These fields stay empty when the quote does not meet its verification threshold.
+
 ## Regression cases
 
 The repository includes a small synthetic regression set covering fabricated quotations, changed numeric facts, missing citations, OCR-like text, unsupported claims, and valid grounded claims.
@@ -128,7 +131,6 @@ The parent project is a local-first Polish legal research and drafting system wh
 
 ## Roadmap
 
-- richer source-span provenance;
 - optional JSON Schema for agent outputs;
 - larger public regression corpus based on reproduced failures;
 - NLI/LLM entailment as an optional second opinion, never a replacement for deterministic checks;

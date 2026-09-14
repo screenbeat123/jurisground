@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jurisground"
-version = "0.1.2"
+version = "0.2.0"
 description = "Verify that LLM claims are supported by cited sources"
 readme = "README.md"
 requires-python = ">=3.10"

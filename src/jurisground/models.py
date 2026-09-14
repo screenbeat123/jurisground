@@ -30,7 +30,6 @@ class Policy:
     quote_threshold: float = 0.965
     ocr_quote_threshold: float = 0.90
     min_claim_support: float = 0.42
-    min_content_stems_for_support: int = 3
     max_expansion_ratio: float = 1.45
     min_expansion_support: float = 0.72
     min_quote_chars: int = 10

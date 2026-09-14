@@ -93,18 +93,16 @@ def test_normalized_match_keeps_source_offsets():
     assert result.matched_text == "Alpha\u00a0Beta   Gamma is recorded here."
 
 
-def test_short_claim_skips_lexical_support_gate():
-    source = Source("S1", "The court dismissed the claim because causation was not proven.")
-    claim = Claim("C1", "Liability remains.", "The court dismissed the claim because causation was not proven.", ("S1",))
-    result = verify_claim(claim, [source])
-    assert "claim_not_supported" not in {x.code for x in result.findings}
-
-
-def test_content_stem_threshold_is_configurable():
-    source = Source("S1", "The court dismissed the claim because causation was not proven.")
-    claim = Claim("C1", "Liability remains.", "The court dismissed the claim because causation was not proven.", ("S1",))
-    result = verify_claim(claim, [source], Policy(min_content_stems_for_support=2))
-    assert "claim_not_supported" in {x.code for x in result.findings}
+def test_claim_support_threshold_is_configurable():
+    quote = "The roof was fixed."
+    claim = Claim("C1", "The roof was repaired.", quote, ("S1",))
+    source = Source("S1", quote)
+    at_threshold = verify_claim(claim, [source], Policy(min_claim_support=0.5))
+    below_threshold = verify_claim(claim, [source], Policy(min_claim_support=0.51))
+    assert at_threshold.claim_support == 0.5
+    assert at_threshold.status == "pass"
+    assert below_threshold.status == "fail"
+    assert "claim_not_supported" in {finding.code for finding in below_threshold.findings}
 
 
 def test_expansion_support_threshold_is_configurable():

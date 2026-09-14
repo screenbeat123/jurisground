@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from .claims import claim_support
 from .models import Claim, ClaimResult, Finding, Policy, Source
-from .normalize import content_stems
+from .normalize import content_stems, normalize_text
 from .numbers import number_tokens
 from .quotes import best_quote_match
 
@@ -15,6 +15,13 @@ def verify_claim(claim: Claim, sources: list[Source], policy: Policy | None = No
     policy = policy or Policy()
     source_by_id = _source_map(sources)
     findings: list[Finding] = []
+
+    if not normalize_text(claim.text):
+        findings.append(Finding("empty_claim", "Claim text is empty after normalization."))
+        return ClaimResult(claim.id, "unverified", findings=findings)
+    if not content_stems(claim.text):
+        findings.append(Finding("no_claim_content", "Claim has no usable tokens for lexical comparison."))
+        return ClaimResult(claim.id, "unverified", findings=findings)
 
     if not claim.source_ids:
         findings.append(Finding("missing_source_ids", "Claim has no cited source IDs."))
@@ -69,8 +76,7 @@ def verify_claim(claim: Claim, sources: list[Source], policy: Policy | None = No
                 details={"numbers": missing_source_numbers},
             ))
 
-    stem_count = len(content_stems(claim.text))
-    if stem_count >= policy.min_content_stems_for_support and quote_support < policy.min_claim_support:
+    if quote_support == 0.0 or quote_support < policy.min_claim_support:
         findings.append(Finding(
             "claim_not_supported",
             "The claim has insufficient lexical support in the cited quote.",

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- return `unverified` for blank claims and claims without usable content tokens;
+- apply the overlap check to short claims, and reject zero overlap even with a zero threshold;
+- remove `Policy.min_content_stems_for_support` (alpha API change); use named arguments without that keyword;
+- replace the old bypass test with regression cases and positive controls, including batch and CLI results;
+- document status meanings and the remaining numeric, Unicode, and semantic limitations.
+
 ## 0.2.0
 
 - return the verified source fragment and character offsets for matched quotations;

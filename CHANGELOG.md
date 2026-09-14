@@ -6,7 +6,10 @@
 - apply the overlap check to short claims, and reject zero overlap even with a zero threshold;
 - remove `Policy.min_content_stems_for_support` (alpha API change); use named arguments without that keyword;
 - replace the old bypass test with regression cases and positive controls, including batch and CLI results;
-- document status meanings and the remaining numeric, Unicode, and semantic limitations.
+- document status meanings and the remaining numeric, Unicode, and semantic limitations;
+- make Policy settings after the first three fields keyword-only so old positional calls cannot silently change numeric checks;
+- exclude separator-only tokens from lexical comparisons while retaining hyphenated words;
+- reuse numeric normalization for digit-only integer tokens in overlap scoring, including leading zeros.
 
 ## 0.2.0
 

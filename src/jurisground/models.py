@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import KW_ONLY, asdict, dataclass, field
 from typing import Any, Literal
 
 Status = Literal["pass", "fail", "unverified"]
@@ -30,6 +30,7 @@ class Policy:
     quote_threshold: float = 0.965
     ocr_quote_threshold: float = 0.90
     min_claim_support: float = 0.42
+    _: KW_ONLY
     max_expansion_ratio: float = 1.45
     min_expansion_support: float = 0.72
     min_quote_chars: int = 10

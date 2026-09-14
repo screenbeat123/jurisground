@@ -107,9 +107,13 @@ A verified quote also returns `matched_text`, `matched_start`, `matched_end`, an
 
 Claims with one or two usable tokens are checked too. Zero lexical overlap always fails, even when `min_claim_support` is zero. Positive overlap must meet the configured threshold. An `unverified` result may return before quote matching; default zero scores on that path are not measurements.
 
+Tokens containing only separators, such as `---` or `___`, are not usable claim content. Digit-only integer tokens use the existing numeric normalizer in overlap scoring: `00100` and `100` compare equally in either direction, including inside longer text. This is not a new rule for signed numbers or locale-sensitive separators.
+
 ### Unreleased API change
 
-`Policy.min_content_stems_for_support` has been removed: claim length can no longer disable the overlap check. Remove that keyword from existing calls and use named `Policy` arguments. `min_claim_support` still controls the required positive overlap. Passing the removed keyword raises `TypeError` instead of silently ignoring it.
+`Policy.min_content_stems_for_support` has been removed: claim length can no longer disable the overlap check. Remove that keyword from existing calls. `min_claim_support` still controls the required positive overlap. Passing the removed keyword raises `TypeError`.
+
+Only the first three fields (`quote_threshold`, `ocr_quote_threshold`, `min_claim_support`) accept positional arguments. All later settings, starting with `max_expansion_ratio`, must be named. Old calls with more than three positional arguments now raise `TypeError` rather than silently shifting values and changing which numeric checks run. For example, use `Policy(require_numbers_in_quote=False)` to disable only the quote-number check; the source-number check stays enabled.
 
 ## Regression cases
 

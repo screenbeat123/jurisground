@@ -4,11 +4,15 @@ from jurisground.quotes import quote_similarity
 
 
 def test_exact_quote_passes():
-    source = Source("S1", "The contractor completed the roof repair on 12 May 2026 for EUR 12,500.")
-    claim = Claim("C1", "The contractor completed the roof repair for EUR 12,500.", "The contractor completed the roof repair on 12 May 2026 for EUR 12,500.", ("S1",))
+    source_text = "The contractor completed the roof repair on 12 May 2026 for EUR 12,500."
+    source = Source("S1", source_text)
+    claim = Claim("C1", "The contractor completed the roof repair for EUR 12,500.", source_text, ("S1",))
     result = verify_claim(claim, [source])
     assert result.status == "pass"
     assert result.quote_score == 1.0
+    assert result.match_method == "exact"
+    assert result.matched_text == source_text
+    assert source_text[result.matched_start:result.matched_end] == result.matched_text
 
 
 def test_fabricated_quote_fails():
@@ -17,6 +21,10 @@ def test_fabricated_quote_fails():
     result = verify_claim(claim, [source])
     assert result.status == "fail"
     assert "quote_not_found" in {x.code for x in result.findings}
+    assert result.matched_text is None
+    assert result.matched_start is None
+    assert result.matched_end is None
+    assert result.match_method is None
 
 
 def test_changed_number_fails():
@@ -54,10 +62,13 @@ def test_quote_across_pages_selects_page():
 
 
 def test_ocr_threshold_can_be_relaxed():
-    source = Source("S1", "The claimant submitted invoice number 4812 for 7000 EUR.", is_ocr=True)
+    source_text = "The claimant submitted invoice number 4812 for 7000 EUR."
+    source = Source("S1", source_text, is_ocr=True)
     claim = Claim("C1", "The claimant submitted invoice 4812 for 7000 EUR.", "The claimant subrnitted invoice number 4812 for 7000 EUR.", ("S1",))
     result = verify_claim(claim, [source], Policy(ocr_quote_threshold=0.84))
     assert result.status == "pass"
+    assert result.match_method == "fuzzy"
+    assert source_text[result.matched_start:result.matched_end] == result.matched_text
 
 
 def test_claim_can_be_supported_by_source_but_not_quote():
@@ -70,6 +81,16 @@ def test_claim_can_be_supported_by_source_but_not_quote():
 
 def test_quote_similarity_exact_after_normalization():
     assert quote_similarity("Alpha\u00a0Beta   Gamma", "alpha beta gamma") == 1.0
+
+
+def test_normalized_match_keeps_source_offsets():
+    source_text = "Header. Alpha\u00a0Beta   Gamma is recorded here. Footer."
+    claim = Claim("C1", "Alpha Beta Gamma is recorded here.", "alpha beta gamma is recorded here.", ("S1",))
+    result = verify_claim(claim, [Source("S1", source_text)])
+    assert result.status == "pass"
+    assert result.match_method == "normalized"
+    assert source_text[result.matched_start:result.matched_end] == result.matched_text
+    assert result.matched_text == "Alpha\u00a0Beta   Gamma is recorded here."
 
 
 def test_short_claim_skips_lexical_support_gate():

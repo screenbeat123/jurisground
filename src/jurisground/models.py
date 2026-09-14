@@ -52,6 +52,10 @@ class ClaimResult:
     matched_source_id: str | None = None
     matched_page: int | None = None
     quote_score: float = 0.0
+    matched_text: str | None = None
+    matched_start: int | None = None
+    matched_end: int | None = None
+    match_method: str | None = None
     claim_support: float = 0.0
     source_support: float = 0.0
     claim_numbers: list[str] = field(default_factory=list)

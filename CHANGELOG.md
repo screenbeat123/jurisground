@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0
+
+- return the verified source fragment and character offsets for matched quotations;
+- report whether a quote matched exactly, after normalization, or through fuzzy matching;
+- keep span fields empty when a quote does not meet the verification threshold.
+
 ## 0.1.2
 
 - remove two misleading Policy switches that did not have sound public semantics;

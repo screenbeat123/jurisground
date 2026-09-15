@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 import unicodedata
 
+from .numbers import number_tokens
+
 _GENERIC_STOPWORDS = {
     "and", "the", "that", "this", "with", "from", "into", "than", "then", "for", "are", "was",
     "were", "has", "have", "had", "not", "but", "or", "of", "to", "in", "on", "a", "an", "is",
@@ -29,10 +31,10 @@ def token_text(value: str) -> str:
 def content_tokens(value: str) -> list[str]:
     out: list[str] = []
     for token in token_text(value).split():
-        if token in _GENERIC_STOPWORDS:
+        if token in _GENERIC_STOPWORDS or not any(char.isalnum() for char in token):
             continue
         if token.isdigit():
-            out.append(token)
+            out.extend(number_tokens(token))
         elif len(token) >= 3:
             out.append(token)
     return out

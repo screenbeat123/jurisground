@@ -62,6 +62,7 @@ class ClaimResult:
     quote_numbers: list[str] = field(default_factory=list)
     source_numbers: list[str] = field(default_factory=list)
     findings: list[Finding] = field(default_factory=list)
+    evidence_numbers: list[str] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

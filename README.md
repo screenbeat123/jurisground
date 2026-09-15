@@ -16,7 +16,7 @@ The public package is intentionally small and has no hosted-model dependency.
 
 - **Quote integrity** — can the cited quotation be found in the cited source?
 - **Evidence location** — which source fragment matched, and where is it on the page?
-- **Numeric provenance** — do numeric facts in the claim occur in the quote and source?
+- **Numeric checks** — do parsed numbers in the quote and claim agree with the matched source fragment?
 - **Lexical overlap** — how much of the claim wording appears in the quoted evidence? This score does not establish agreement in meaning.
 - **Source provenance** — are cited source IDs present and resolvable?
 - **Fail-closed batch validation** — one failed claim can block the batch from being treated as grounded.
@@ -97,7 +97,17 @@ Abbreviated failure output:
 
 The public API exposes `Source`, `Claim`, `Policy`, `verify_claim`, and `verify_batch`.
 
-A verified quote also returns `matched_text`, `matched_start`, `matched_end`, and `match_method`. Offsets are relative to the original matched page text and use normal Python slice semantics: `matched_start` is inclusive and `matched_end` is exclusive. `match_method` is `exact`, `normalized`, or `fuzzy`. These fields stay empty when the quote does not meet its verification threshold.
+A quote match above the similarity threshold also returns `matched_text`, `matched_start`, `matched_end`, and `match_method`. Offsets are relative to the original matched page text and use normal Python slice semantics: `matched_start` is inclusive and `matched_end` is exclusive. `match_method` is `exact`, `normalized`, or `fuzzy`. These fields stay empty when no candidate meets the similarity threshold. A located fragment can still fail numeric or lexical checks; its presence is not approval of the quote or claim.
+
+## Numeric evidence
+
+With `require_numbers_in_source=True` (the default), numeric checks use the located source fragment as well as the cited corpus. `quote_number_mismatch` means the quote and that fragment have different parsed number sequences, including order and repetition. `number_not_in_evidence` means a claim number is missing from that fragment. A matching number elsewhere in the document, on another page, or in another cited source does not satisfy this check.
+
+`evidence_numbers` contains the numbers parsed from `matched_text`. It is `null` when no above-threshold candidate is available, and `[]` when the candidate contains no numbers. `source_numbers` keeps its existing meaning: all numbers from the cited material, for diagnostics. It is not the basis for approving a number absent from the matched fragment.
+
+`require_numbers_in_quote` controls claim-to-quote membership. `require_numbers_in_source` controls the source and matched-fragment checks, including quote-number integrity. Setting the latter to `False` explicitly disables those checks; the reported evidence numbers do not mean they were enforced.
+
+This is deliberately conservative for fuzzy matching: a candidate containing extra numbers also fails quote-number integrity. Numeric membership does not establish who a number refers to, its unit, or its legal significance. The existing number parser still has the sign and separator limitations listed below.
 
 ## Result status
 
@@ -145,7 +155,7 @@ The lexical support score is intentionally simple and auditable. It is a guardra
 
 Lexical overlap can miss negation and changes in who did what. For example, `did not pay` and `did pay` can receive the same score. A matching quote is not proof that a paraphrase follows from it.
 
-Signed and locale-sensitive numbers, checking numbers against the matched fragment rather than the whole cited material, and canonically equivalent Unicode spans still need fixes. Do not use this alpha version as the sole approval gate for consequential documents. The current change fixes empty and short claims; it does not resolve those other findings.
+Signed and locale-sensitive numbers and canonically equivalent Unicode spans still need fixes. With both numeric checks disabled, the lexical scorer can also conflate `00.001` with `0.1`; the dingbat digit `➀` is currently treated as unassessable content. These two reported cases are tracked as strict expected-failure tests, not counted as passing tests. Do not use this alpha version as the sole approval gate for consequential documents. Empty/short-claim validation and numeric binding to the matched fragment have been addressed. The other findings above remain unresolved.
 
 ## Why legal AI first?
 

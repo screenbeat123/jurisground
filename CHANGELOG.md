@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- check the quoted numeric sequence and claim numbers against the actual matched fragment when source-number checking is enabled;
+- expose `evidence_numbers` separately from corpus-wide `source_numbers`, including on numeric failures;
+- reject a missing match even when its similarity threshold is zero;
+- preserve the two nonblocking PR #7 follow-up findings as explicit expected-failure tests;
+
 - return `unverified` for blank claims and claims without usable content tokens;
 - apply the overlap check to short claims, and reject zero overlap even with a zero threshold;
 - remove `Policy.min_content_stems_for_support` (alpha API change); use named arguments without that keyword;

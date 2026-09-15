@@ -41,7 +41,7 @@ def verify_claim(claim: Claim, sources: list[Source], policy: Policy | None = No
     match = best_quote_match(claim.quote, cited)
     matched_source = source_by_id.get(match.source_id or "")
     quote_threshold = policy.ocr_quote_threshold if (matched_source and matched_source.is_ocr) else policy.quote_threshold
-    quote_verified = match.score >= quote_threshold
+    quote_verified = match.text is not None and match.score >= quote_threshold
     if not quote_verified:
         findings.append(Finding(
             "quote_not_found",
@@ -56,6 +56,7 @@ def verify_claim(claim: Claim, sources: list[Source], policy: Policy | None = No
     claim_numbers = number_tokens(claim.text)
     quote_numbers = number_tokens(claim.quote)
     source_numbers = number_tokens(source_corpus)
+    evidence_numbers = number_tokens(match.text) if quote_verified else None
     quote_number_set = set(quote_numbers)
     source_number_set = set(source_numbers)
 
@@ -75,6 +76,22 @@ def verify_claim(claim: Claim, sources: list[Source], policy: Policy | None = No
                 "A numeric fact in the claim is not present in the cited source material.",
                 details={"numbers": missing_source_numbers},
             ))
+
+        if evidence_numbers is not None:
+            if quote_numbers != evidence_numbers:
+                findings.append(Finding(
+                    "quote_number_mismatch",
+                    "The quote's numeric sequence differs from the matched source fragment.",
+                    details={"quote_numbers": quote_numbers, "evidence_numbers": evidence_numbers},
+                ))
+            evidence_number_set = set(evidence_numbers)
+            missing_evidence_numbers = [n for n in claim_numbers if n not in evidence_number_set]
+            if missing_evidence_numbers:
+                findings.append(Finding(
+                    "number_not_in_evidence",
+                    "A numeric fact in the claim is absent from the matched source fragment.",
+                    details={"numbers": missing_evidence_numbers},
+                ))
 
     if quote_support == 0.0 or quote_support < policy.min_claim_support:
         findings.append(Finding(
@@ -110,6 +127,7 @@ def verify_claim(claim: Claim, sources: list[Source], policy: Policy | None = No
         quote_numbers=quote_numbers,
         source_numbers=source_numbers,
         findings=findings,
+        evidence_numbers=evidence_numbers,
     )
 
 

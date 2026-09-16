@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- include the adversarial JSONL fixture in source distributions;
 - return `unverified` for blank claims and claims without usable content tokens;
 - apply the overlap check to short claims, and reject zero overlap even with a zero threshold;
 - remove `Policy.min_content_stems_for_support` (alpha API change); use named arguments without that keyword;

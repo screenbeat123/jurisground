@@ -20,5 +20,6 @@ jobs:
       - run: pytest
       - if: matrix.python-version == '3.12'
         run: |
+          python -m pip install "setuptools>=70"
           python -c "from setuptools.build_meta import build_sdist; build_sdist('dist')"
           tar -tzf dist/*.tar.gz | grep -q '/evals/adversarial_cases.jsonl$'

@@ -4,7 +4,7 @@ from .claims import claim_support
 from .models import Claim, ClaimResult, Finding, Policy, Source
 from .normalize import content_stems, normalize_text
 from .numbers import number_tokens
-from .quotes import best_quote_match
+from .quotes import best_quote_match, quote_matches
 
 
 def _source_map(sources: list[Source]) -> dict[str, Source]:
@@ -38,7 +38,35 @@ def verify_claim(claim: Claim, sources: list[Source], policy: Policy | None = No
         findings.append(Finding("quote_too_short", "Quote is missing or too short to verify."))
         return ClaimResult(claim.id, "unverified", findings=findings)
 
-    match = best_quote_match(claim.quote, cited)
+    claim_numbers = number_tokens(claim.text)
+    quote_numbers = number_tokens(claim.quote)
+
+    page_limit = None if policy.require_numbers_in_source else 1
+    matches = quote_matches(claim.quote, cited, per_page_limit=page_limit)
+
+    def threshold_for(candidate) -> float:
+        source = source_by_id.get(candidate.source_id or "")
+        return policy.ocr_quote_threshold if (source and source.is_ocr) else policy.quote_threshold
+
+    verified_matches = [
+        candidate for candidate in matches
+        if candidate.text is not None and candidate.score >= threshold_for(candidate)
+    ]
+    if policy.require_numbers_in_source:
+        numeric_matches = [
+            candidate for candidate in verified_matches
+            if number_tokens(candidate.text or "") == quote_numbers
+        ]
+    else:
+        numeric_matches = []
+
+    if numeric_matches:
+        match = numeric_matches[0]
+    elif verified_matches:
+        match = verified_matches[0]
+    else:
+        match = matches[0] if matches else best_quote_match(claim.quote, cited)
+
     matched_source = source_by_id.get(match.source_id or "")
     quote_threshold = policy.ocr_quote_threshold if (matched_source and matched_source.is_ocr) else policy.quote_threshold
     quote_verified = match.text is not None and match.score >= quote_threshold
@@ -53,8 +81,6 @@ def verify_claim(claim: Claim, sources: list[Source], policy: Policy | None = No
     quote_support = claim_support(claim.text, claim.quote)
     source_support = claim_support(claim.text, source_corpus)
 
-    claim_numbers = number_tokens(claim.text)
-    quote_numbers = number_tokens(claim.quote)
     source_numbers = number_tokens(source_corpus)
     evidence_numbers = number_tokens(match.text) if quote_verified else None
     quote_number_set = set(quote_numbers)

@@ -214,3 +214,107 @@ def test_no_candidate_cannot_pass_with_both_number_checks_disabled():
     )
     assert result.status == "fail"
     assert result.evidence_numbers is None
+
+
+def test_ocr_match_does_not_include_adjacent_number_when_tighter_window_is_better():
+    quote = REPAIR.replace("completed", "cornpleted")
+    source = "2025. " + REPAIR
+    result = verify_claim(
+        Claim("C1", REPAIR, quote, ("S1",)),
+        [Source("S1", source, is_ocr=True)],
+    )
+    assert result.status == "pass"
+    assert result.quote_score == pytest.approx(0.978, abs=0.001)
+    assert result.evidence_numbers == ["12", "2026", "1900"]
+    assert result.matched_text == REPAIR[:-1]
+
+
+def test_valid_numeric_ocr_match_can_beat_higher_scoring_wrong_amount():
+    wrong_amount = REPAIR.replace("1900", "9900")
+    correct_ocr = REPAIR.replace("completed", "cornpleted")
+    sources = [Source("wrong", wrong_amount), Source("right", correct_ocr, is_ocr=True)]
+    result = verify_claim(Claim("C1", REPAIR, REPAIR, ("wrong", "right")), sources)
+    assert result.status == "pass"
+    assert result.matched_source_id == "right"
+    assert result.evidence_numbers == ["12", "2026", "1900"]
+    assert result.quote_score < 0.985
+
+
+def test_valid_numeric_match_on_later_page_is_not_masked_by_wrong_amount():
+    wrong_amount = REPAIR.replace("1900", "9900")
+    correct_ocr = REPAIR.replace("completed", "cornpleted")
+    source = Source("S1", pages=(wrong_amount, correct_ocr), is_ocr=True)
+    result = verify_claim(Claim("C1", REPAIR, REPAIR, ("S1",)), [source])
+    assert result.status == "pass"
+    assert result.matched_page == 2
+    assert result.evidence_numbers == ["12", "2026", "1900"]
+
+
+def test_disabling_source_number_checks_keeps_similarity_first_selection():
+    wrong_amount = REPAIR.replace("1900", "9900")
+    correct_ocr = REPAIR.replace("completed", "cornpleted")
+    sources = [Source("wrong", wrong_amount), Source("right", correct_ocr, is_ocr=True)]
+    result = verify_claim(
+        Claim("C1", REPAIR, REPAIR, ("wrong", "right")),
+        sources,
+        Policy(require_numbers_in_source=False),
+    )
+    assert result.status == "pass"
+    assert result.matched_source_id == "wrong"
+    assert result.evidence_numbers == ["12", "2026", "9900"]
+
+@pytest.mark.parametrize("separator", [" ", "\n", " | "])
+def test_valid_numeric_ocr_match_on_same_page_is_not_masked(separator):
+    wrong_amount = REPAIR.replace("1900", "9900")
+    correct_ocr = REPAIR.replace("completed", "cornpleted")
+    source = Source("S1", wrong_amount + separator + correct_ocr, is_ocr=True)
+    result = verify_claim(Claim("C1", REPAIR, REPAIR, ("S1",)), [source])
+    assert result.status == "pass"
+    assert result.matched_source_id == "S1"
+    assert result.matched_page == 1
+    assert result.evidence_numbers == ["12", "2026", "1900"]
+    assert "cornpleted" in result.matched_text
+
+
+def test_valid_numeric_ocr_match_survives_multiple_wrong_same_page_candidates():
+    wrong_amount = REPAIR.replace("1900", "9900")
+    correct_ocr = REPAIR.replace("completed", "cornpleted")
+    source = Source("S1", " ".join([wrong_amount, wrong_amount, correct_ocr, wrong_amount]), is_ocr=True)
+    result = verify_claim(Claim("C1", REPAIR, REPAIR, ("S1",)), [source])
+    assert result.status == "pass"
+    assert result.evidence_numbers == ["12", "2026", "1900"]
+    assert "cornpleted" in result.matched_text
+
+
+def test_fuzzy_refinement_has_a_fixed_similarity_budget(monkeypatch):
+    import jurisground.quotes as quotes_module
+
+    original = quotes_module.SequenceMatcher
+    calls = 0
+
+    def counting_matcher(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(quotes_module, "SequenceMatcher", counting_matcher)
+    sentence = "The contractor completed the roof repair and recorded the invoice amount."
+    quote = " ".join([sentence] * 25)
+    source = quote.replace("completed", "cornpleted").replace("recorded", "rec0rded")
+    result = verify_claim(Claim("C1", quote, quote, ("S1",)), [Source("S1", source, is_ocr=True)])
+    assert result.status == "fail"
+    assert calls <= 1100
+
+
+def test_valid_numeric_ocr_match_is_not_lost_after_many_wrong_same_page_candidates():
+    wrong_amount = REPAIR.replace("1900", "9900")
+    correct_ocr = REPAIR.replace("completed", "cornpleted")
+    parts = [wrong_amount] * 12
+    parts.insert(6, correct_ocr)
+    result = verify_claim(
+        Claim("C1", REPAIR, REPAIR, ("S1",)),
+        [Source("S1", " ".join(parts), is_ocr=True)],
+    )
+    assert result.status == "pass"
+    assert result.evidence_numbers == ["12", "2026", "1900"]
+    assert "cornpleted" in result.matched_text

@@ -107,7 +107,7 @@ With `require_numbers_in_source=True` (the default), numeric checks use the loca
 
 `require_numbers_in_quote` controls claim-to-quote membership. `require_numbers_in_source` controls the source and matched-fragment checks, including quote-number integrity. Setting the latter to `False` explicitly disables those checks; the reported evidence numbers do not mean they were enforced.
 
-This is deliberately conservative for fuzzy matching: a candidate containing extra numbers also fails quote-number integrity. Numeric membership does not establish who a number refers to, its unit, or its legal significance. The existing number parser still has the sign and separator limitations listed below.
+For fuzzy matching, JurisGround checks other above-threshold fragments, including separate candidates on the same page, before failing solely because the highest-similarity candidate has a different numeric sequence. Adjacent window boundaries are refined under a fixed comparison budget so a nearby date or amount is less likely to be pulled into an otherwise valid match without making long fuzzy checks grow quadratically. If no numerically compatible candidate exists, the best verified fragment is still returned with the numeric findings. Numeric membership does not establish who a number refers to, its unit, or its legal significance. The existing number parser still has the sign and separator limitations listed below.
 
 ## Result status
 

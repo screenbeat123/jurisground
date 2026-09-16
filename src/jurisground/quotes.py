@@ -9,6 +9,10 @@ from .models import Source
 from .normalize import normalize_text, token_text
 
 
+_MAX_WINDOWS = 900
+_REFINEMENT_BUDGET = 160
+
+
 @dataclass(frozen=True)
 class _QuoteMatch:
     source_id: str | None = None
@@ -51,28 +55,77 @@ def _token_spans(value: str) -> list[tuple[str, int, int]]:
     return spans
 
 
-def _match_text(quote: str, source: str) -> _QuoteMatch:
-    q = normalize_text(quote)
-    s = normalize_text(source)
-    if len(q) < 10 or not s:
-        return _QuoteMatch()
+def _fuzzy_match(source: str, source_spans, source_tokens, target: str, first: int, last: int, score: float) -> _QuoteMatch:
+    start = source_spans[first][1]
+    end = source_spans[last - 1][2]
+    return _QuoteMatch(score=score, start=start, end=end, text=source[start:end], method="fuzzy")
 
-    start = source.find(quote)
-    if start >= 0:
-        end = start + len(quote)
-        return _QuoteMatch(score=1.0, start=start, end=end, text=source[start:end], method="exact")
 
-    normalized_source, offsets = _normalized_with_offsets(source)
-    pos = normalized_source.find(q)
-    if pos >= 0:
-        start = offsets[pos]
-        end = offsets[pos + len(q) - 1] + 1
-        return _QuoteMatch(score=1.0, start=start, end=end, text=source[start:end], method="normalized")
+def _boundary_adjustments(radius: int) -> list[int]:
+    values = {0, -1, 1}
+    step = radius
+    while step > 1:
+        values.update((-step, step))
+        step //= 2
+    return sorted(values, key=lambda value: (abs(value), value))
 
+
+def _refine_fuzzy_match(
+    source: str,
+    source_spans,
+    source_tokens,
+    target: str,
+    first: int,
+    last: int,
+    score: float,
+    quote_token_count: int,
+    budget: int,
+) -> tuple[_QuoteMatch, int]:
+    best = _fuzzy_match(source, source_spans, source_tokens, target, first, last, score)
+    used = 0
+    radius = max(2, quote_token_count // 5)
+    adjustments = _boundary_adjustments(radius)
+
+    for move_first in (True, False, True, False):
+        if used >= budget:
+            break
+        if move_first:
+            choices = adjustments if used < budget // 2 else [-2, -1, 1, 2]
+            for delta in choices:
+                if delta == 0 or used >= budget:
+                    continue
+                candidate_first = first + delta
+                if candidate_first < 0 or last - candidate_first < 3:
+                    continue
+                candidate = " ".join(source_tokens[candidate_first:last])
+                candidate_score = SequenceMatcher(None, target, candidate).ratio()
+                used += 1
+                if candidate_score > best.score:
+                    first = candidate_first
+                    best = _fuzzy_match(source, source_spans, source_tokens, target, first, last, candidate_score)
+        else:
+            choices = adjustments if used < budget // 2 else [-2, -1, 1, 2]
+            for delta in choices:
+                if delta == 0 or used >= budget:
+                    continue
+                candidate_last = last + delta
+                if candidate_last > len(source_spans) or candidate_last - first < 3:
+                    continue
+                candidate = " ".join(source_tokens[first:candidate_last])
+                candidate_score = SequenceMatcher(None, target, candidate).ratio()
+                used += 1
+                if candidate_score > best.score:
+                    last = candidate_last
+                    best = _fuzzy_match(source, source_spans, source_tokens, target, first, last, candidate_score)
+
+    return best, used
+
+
+def _fuzzy_matches(quote: str, source: str, limit: int | None) -> list[_QuoteMatch]:
     quote_tokens = token_text(quote).split()
     source_spans = _token_spans(source)
     if len(quote_tokens) < 3 or not source_spans:
-        return _QuoteMatch()
+        return []
 
     source_tokens = [token for token, _, _ in source_spans]
     anchors = sorted({token for token in quote_tokens if len(token) >= 5}, key=len, reverse=True)[:4]
@@ -94,30 +147,89 @@ def _match_text(quote: str, source: str) -> _QuoteMatch:
         candidates = [(i, min(len(source_spans), i + n)) for i in range(0, max(1, len(source_spans) - n + 1), step)]
 
     target = " ".join(quote_tokens)
-    best = _QuoteMatch()
-    for first, last in candidates[:900]:
+    scored: list[tuple[float, int, int]] = []
+    seen: set[tuple[int, int]] = set()
+    for first, last in candidates:
+        bounds = (first, last)
+        if bounds in seen:
+            continue
+        seen.add(bounds)
         candidate = " ".join(source_tokens[first:last])
         score = SequenceMatcher(None, target, candidate).ratio()
-        if score > best.score:
-            start = source_spans[first][1]
-            end = source_spans[last - 1][2]
-            best = _QuoteMatch(score=score, start=start, end=end, text=source[start:end], method="fuzzy")
-        if best.score >= 0.985:
+        scored.append((score, first, last))
+        if len(scored) >= _MAX_WINDOWS:
             break
-    return best
+        if limit == 1 and score >= 0.985:
+            break
+
+    if not scored:
+        return []
+
+    separation = max(2, n // 2)
+    seeds: list[tuple[float, int, int]] = []
+    for score, first, last in sorted(scored, reverse=True):
+        if any(abs(first - seed_first) < separation for _, seed_first, _ in seeds):
+            continue
+        seeds.append((score, first, last))
+        if limit is not None and len(seeds) >= limit:
+            break
+
+    remaining_budget = _REFINEMENT_BUDGET
+    refined: list[_QuoteMatch] = []
+    refine_count = min(len(seeds), 8)
+    for index, (score, first, last) in enumerate(seeds):
+        if index < refine_count:
+            seed_count_left = refine_count - index
+            budget = remaining_budget // seed_count_left if seed_count_left else 0
+            match, used = _refine_fuzzy_match(
+                source, source_spans, source_tokens, target, first, last, score, n, budget,
+            )
+            remaining_budget -= used
+        else:
+            match = _fuzzy_match(source, source_spans, source_tokens, target, first, last, score)
+        refined.append(match)
+
+    return sorted(refined, key=lambda match: match.score, reverse=True)
+
+
+def _match_texts(quote: str, source: str, limit: int | None = 1) -> list[_QuoteMatch]:
+    q = normalize_text(quote)
+    s = normalize_text(source)
+    if len(q) < 10 or not s:
+        return []
+
+    start = source.find(quote)
+    if start >= 0:
+        end = start + len(quote)
+        return [_QuoteMatch(score=1.0, start=start, end=end, text=source[start:end], method="exact")]
+
+    normalized_source, offsets = _normalized_with_offsets(source)
+    pos = normalized_source.find(q)
+    if pos >= 0:
+        start = offsets[pos]
+        end = offsets[pos + len(q) - 1] + 1
+        return [_QuoteMatch(score=1.0, start=start, end=end, text=source[start:end], method="normalized")]
+
+    return _fuzzy_matches(quote, source, limit)
+
+
+def _match_text(quote: str, source: str) -> _QuoteMatch:
+    matches = _match_texts(quote, source)
+    return matches[0] if matches else _QuoteMatch()
 
 
 def quote_similarity(quote: str, source: str) -> float:
     return _match_text(quote, source).score
 
 
-def best_quote_match(quote: str, sources: list[Source]) -> _QuoteMatch:
-    best = _QuoteMatch()
+def quote_matches(quote: str, sources: list[Source], per_page_limit: int | None = 1) -> list[_QuoteMatch]:
+    matches: list[_QuoteMatch] = []
     for source in sources:
         for page_index, page_text in enumerate(source.page_texts(), start=1):
-            match = _match_text(quote, page_text)
-            if match.score > best.score:
-                best = _QuoteMatch(
+            for match in _match_texts(quote, page_text, per_page_limit):
+                if match.text is None:
+                    continue
+                matches.append(_QuoteMatch(
                     source_id=source.id,
                     page=page_index,
                     score=match.score,
@@ -125,5 +237,10 @@ def best_quote_match(quote: str, sources: list[Source]) -> _QuoteMatch:
                     end=match.end,
                     text=match.text,
                     method=match.method,
-                )
-    return best
+                ))
+    return sorted(matches, key=lambda match: match.score, reverse=True)
+
+
+def best_quote_match(quote: str, sources: list[Source]) -> _QuoteMatch:
+    matches = quote_matches(quote, sources)
+    return matches[0] if matches else _QuoteMatch()

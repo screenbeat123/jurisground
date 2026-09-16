@@ -6,6 +6,7 @@
 - expose `evidence_numbers` separately from corpus-wide `source_numbers`, including on numeric failures;
 - reject a missing match even when its similarity threshold is zero;
 - preserve the two nonblocking PR #7 follow-up findings as explicit expected-failure tests;
+- refine fuzzy windows within a fixed comparison budget and consider alternate verified fragments, including separate matches on the same page, when the highest-similarity fragment has an incompatible numeric sequence;
 
 - return `unverified` for blank claims and claims without usable content tokens;
 - apply the overlap check to short claims, and reject zero overlap even with a zero threshold;

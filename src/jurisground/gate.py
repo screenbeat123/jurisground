@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .claims import claim_support
+from .legal import _citation_fields, _citation_mismatches, parse_polish_citations
 from .models import Claim, ClaimResult, Finding, Policy, Source
 from .normalize import content_stems, normalize_text
 from .numbers import number_tokens
@@ -48,6 +49,62 @@ def verify_claim(claim: Claim, sources: list[Source], policy: Policy | None = No
             "The quoted text could not be verified in the cited source material.",
             details={"score": round(match.score, 3), "threshold": quote_threshold},
         ))
+
+    claim_legal_citation = None
+    evidence_legal_citation = None
+    if policy.require_legal_citation_match and quote_verified:
+        claim_citations = parse_polish_citations(claim.text)
+        if not claim_citations:
+            findings.append(Finding(
+                "legal_citation_missing",
+                "The claim has no supported Polish statutory citation to bind to evidence.",
+            ))
+        elif len(claim_citations) > 1:
+            findings.append(Finding(
+                "legal_citation_ambiguous",
+                "The claim contains more than one Polish statutory citation.",
+                details={"citations": [citation.raw for citation in claim_citations]},
+            ))
+        else:
+            claim_citation = claim_citations[0]
+            claim_legal_citation = _citation_fields(claim_citation)
+            if (
+                not matched_source
+                or not matched_source.legal_citation
+                or not matched_source.legal_citation.strip()
+            ):
+                findings.append(Finding(
+                    "legal_evidence_citation_missing",
+                    "The matched source has no legal-citation metadata.",
+                ))
+            else:
+                evidence_value = matched_source.legal_citation.strip()
+                evidence_citations = parse_polish_citations(evidence_value)
+                exact_metadata = (
+                    len(evidence_citations) == 1
+                    and evidence_citations[0].start == 0
+                    and evidence_citations[0].end == len(evidence_value)
+                )
+                if not exact_metadata:
+                    findings.append(Finding(
+                        "legal_evidence_citation_invalid",
+                        "The matched source legal-citation metadata must be exactly one supported citation.",
+                        details={"value": matched_source.legal_citation},
+                    ))
+                else:
+                    evidence_citation = evidence_citations[0]
+                    evidence_legal_citation = _citation_fields(evidence_citation)
+                    mismatches = _citation_mismatches(claim_citation, evidence_citation)
+                    if mismatches:
+                        findings.append(Finding(
+                            "legal_citation_mismatch",
+                            "The claim citation does not match the legal unit attached to the evidence.",
+                            details={
+                                "fields": mismatches,
+                                "claim": claim_legal_citation,
+                                "evidence": evidence_legal_citation,
+                            },
+                        ))
 
     source_corpus = "\n".join("\n".join(source.page_texts()) for source in cited)
     quote_support = claim_support(claim.text, claim.quote)
@@ -109,6 +166,8 @@ def verify_claim(claim: Claim, sources: list[Source], policy: Policy | None = No
         claim_numbers=claim_numbers,
         quote_numbers=quote_numbers,
         source_numbers=source_numbers,
+        claim_legal_citation=claim_legal_citation,
+        evidence_legal_citation=evidence_legal_citation,
         findings=findings,
     )
 

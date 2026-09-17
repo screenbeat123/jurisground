@@ -53,6 +53,26 @@ def parse_polish_citations(text: str) -> list[PolishLegalCitation]:
     return citations
 
 
+def _citation_fields(citation: PolishLegalCitation) -> dict[str, str | None]:
+    return {
+        "article": citation.article,
+        "paragraph": citation.paragraph,
+        "subsection": citation.subsection,
+        "point": citation.point,
+        "letter": citation.letter,
+        "act": citation.act,
+    }
+
+
+def _citation_mismatches(claim: PolishLegalCitation, evidence: PolishLegalCitation) -> list[str]:
+    evidence_fields = _citation_fields(evidence)
+    return [
+        field
+        for field, expected in _citation_fields(claim).items()
+        if expected is not None and expected != evidence_fields[field]
+    ]
+
+
 def _lower(value: str | None) -> str | None:
     return value.lower() if value else None
 

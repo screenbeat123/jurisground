@@ -22,7 +22,7 @@ The grounding gate can optionally bind one parsed citation in a claim to legal-u
 
 The comparison is directional: every component explicitly stated by the claim must match the evidence metadata. Evidence may be more specific, so a claim citing `art. 471 k.c.` can be supported by a source tagged `art. 471 § 1 k.c.`. The reverse is rejected because article-level metadata cannot prove a paragraph-specific citation.
 
-The first binding version intentionally requires exactly one supported citation in the claim and exactly one in the matched source metadata. Missing, ambiguous, invalid or mismatched metadata produces a focused finding instead of silently skipping the legal check. `ClaimResult` includes normalized `claim_legal_citation` and `evidence_legal_citation` fields for auditing.
+The first binding version intentionally requires exactly one supported citation in the claim and exactly one in the matched source metadata. Metadata may have surrounding whitespace, but after trimming the entire value must be the citation; surrounding prose or punctuation is rejected. Missing, ambiguous, invalid or mismatched metadata produces a focused finding instead of silently skipping the legal check. `ClaimResult` includes normalized `claim_legal_citation` and `evidence_legal_citation` fields for auditing.
 
 Legal binding is opt-in and does not change the generic grounding behavior when disabled. For precise results, represent legal chunks as separate sources and attach the citation of the unit represented by each chunk.
 

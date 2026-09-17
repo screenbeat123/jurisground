@@ -66,17 +66,32 @@ def test_claim_more_specific_than_evidence_fails():
     assert "legal_citation_mismatch" in codes(result)
 
 
-def test_missing_evidence_metadata_fails_closed():
-    result = check(QUOTE, None)
+@pytest.mark.parametrize("value", [None, "", " \t "])
+def test_missing_evidence_metadata_fails_closed(value):
+    result = check(QUOTE, value)
     assert result.status == "fail"
     assert "legal_evidence_citation_missing" in codes(result)
 
 
-@pytest.mark.parametrize("value", ["not a citation", "art. 471 k.c.; art. 472 k.c.", "art. 5-7 k.c."])
+@pytest.mark.parametrize(
+    "value",
+    [
+        "not a citation",
+        "art. 471 k.c.; art. 472 k.c.",
+        "art. 5-7 k.c.",
+        "prefix art. 471 k.c.",
+        "art. 471 k.c. trailing text",
+    ],
+)
 def test_invalid_evidence_metadata_fails_closed(value):
     result = check(QUOTE, value)
     assert result.status == "fail"
     assert "legal_evidence_citation_invalid" in codes(result)
+
+
+def test_surrounding_whitespace_in_evidence_metadata_is_allowed():
+    result = check(QUOTE, " \tart. 471 k.c.\n")
+    assert result.status == "pass"
 
 
 def test_missing_claim_citation_fails_when_required():

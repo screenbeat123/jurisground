@@ -68,17 +68,27 @@ def verify_claim(claim: Claim, sources: list[Source], policy: Policy | None = No
         else:
             claim_citation = claim_citations[0]
             claim_legal_citation = _citation_fields(claim_citation)
-            if not matched_source or not matched_source.legal_citation:
+            if (
+                not matched_source
+                or not matched_source.legal_citation
+                or not matched_source.legal_citation.strip()
+            ):
                 findings.append(Finding(
                     "legal_evidence_citation_missing",
                     "The matched source has no legal-citation metadata.",
                 ))
             else:
-                evidence_citations = parse_polish_citations(matched_source.legal_citation)
-                if len(evidence_citations) != 1:
+                evidence_value = matched_source.legal_citation.strip()
+                evidence_citations = parse_polish_citations(evidence_value)
+                exact_metadata = (
+                    len(evidence_citations) == 1
+                    and evidence_citations[0].start == 0
+                    and evidence_citations[0].end == len(evidence_value)
+                )
+                if not exact_metadata:
                     findings.append(Finding(
                         "legal_evidence_citation_invalid",
-                        "The matched source legal-citation metadata must contain exactly one supported citation.",
+                        "The matched source legal-citation metadata must be exactly one supported citation.",
                         details={"value": matched_source.legal_citation},
                     ))
                 else:

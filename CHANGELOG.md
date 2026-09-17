@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- parse common Polish statutory citations into structured article/paragraph/subsection/point/letter fields with original source offsets;
 - include the adversarial JSONL fixture in source distributions;
 - return `unverified` for blank claims and claims without usable content tokens;
 - apply the overlap check to short claims, and reject zero overlap even with a zero threshold;
@@ -16,7 +17,7 @@
 
 - return the verified source fragment and character offsets for matched quotations;
 - report whether a quote matched exactly, after normalization, or through fuzzy matching;
-- keep span fields empty when a quote does not meet the verification threshold.
+- keep span fields empty when a quote does not meet its verification threshold.
 
 ## 0.1.2
 

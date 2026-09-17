@@ -18,6 +18,7 @@ def _source(item: dict) -> Source:
         text=str(item.get("text") or ""),
         pages=tuple(str(x) for x in (item.get("pages") or [])),
         is_ocr=bool(item.get("is_ocr")),
+        legal_citation=str(item["legal_citation"]) if item.get("legal_citation") is not None else None,
     )
 
 

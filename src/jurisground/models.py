@@ -12,6 +12,7 @@ class Source:
     text: str = ""
     pages: tuple[str, ...] = ()
     is_ocr: bool = False
+    legal_citation: str | None = None
 
     def page_texts(self) -> tuple[str, ...]:
         return self.pages or (self.text,)
@@ -36,6 +37,7 @@ class Policy:
     min_quote_chars: int = 10
     require_numbers_in_quote: bool = True
     require_numbers_in_source: bool = True
+    require_legal_citation_match: bool = False
 
 
 @dataclass
@@ -61,6 +63,8 @@ class ClaimResult:
     claim_numbers: list[str] = field(default_factory=list)
     quote_numbers: list[str] = field(default_factory=list)
     source_numbers: list[str] = field(default_factory=list)
+    claim_legal_citation: dict[str, str | None] | None = None
+    evidence_legal_citation: dict[str, str | None] | None = None
     findings: list[Finding] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:

@@ -98,7 +98,7 @@ Abbreviated failure output:
 
 The main API is `Source`, `Claim`, `Policy`, `verify_claim`, and `verify_batch`. `parse_polish_citations()` and `PolishLegalCitation` provide the optional Polish citation parser.
 
-A quote match above the similarity threshold also returns `matched_text`, `matched_start`, `matched_end`, and `match_method`. Offsets are relative to the original matched page text and use normal Python slice semantics: `matched_start` is inclusive and `matched_end` is exclusive. `match_method` is `exact`, `normalized`, or `fuzzy`. These fields stay empty when no candidate meets the similarity threshold. A located fragment can still fail numeric or lexical checks; its presence is not approval of the quote or claim.
+A quote match above the similarity threshold also returns `matched_text`, `matched_start`, `matched_end`, and `match_method`. Offsets point to the original page text, even when Unicode or whitespace normalization was needed for the match. `matched_start` is inclusive and `matched_end` is exclusive. `match_method` is `exact`, `normalized`, or `fuzzy`. These fields stay empty when no candidate meets the similarity threshold.
 
 ## Numeric evidence
 
@@ -154,7 +154,7 @@ Lexical overlap is deliberately simple. It is not semantic entailment. The defau
 
 Lexical overlap can miss negation and changes in who did what. For example, `did not pay` and `did pay` can receive the same score. A matching quote is not proof that a paraphrase follows from it.
 
-The number parser does not infer a locale beyond the conservative separator rules above, and it does not know what a number refers to. Canonically equivalent Unicode text can still miss a quote match. With numeric checks disabled, lexical scoring can also conflate `00.001` with `0.1`; the dingbat digit `➀` is still unsupported. Those two cases are tracked as expected failures. A PASS is only a grounding check; it is not final approval of a document.
+The number parser does not infer a locale beyond the conservative separator rules above, and it does not know what a number refers to. With numeric checks disabled, lexical scoring can also conflate `00.001` with `0.1`; the dingbat digit `➀` is still unsupported. Those two cases are tracked as expected failures. A PASS is only a grounding check; it is not final approval of a document.
 
 ## Origin
 

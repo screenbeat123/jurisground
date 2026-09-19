@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- match canonically equivalent Unicode while keeping offsets into the original source text;
 - add optional parsing and source binding for common Polish statutory citations;
 - validate claim and quote numbers against the actual matched source fragment, with `evidence_numbers` for diagnostics;
 - improve fuzzy/OCR evidence selection while keeping comparison work bounded;

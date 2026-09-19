@@ -27,34 +27,73 @@ class _QuoteMatch:
     method: str | None = None
 
 
-def _normalized_with_offsets(value: str) -> tuple[str, list[int]]:
-    chars: list[str] = []
-    offsets: list[int] = []
-    pending_space: int | None = None
+def _normalization_clusters(value: str):
+    index = 0
+    while index < len(value):
+        start = index
+        index += 1
 
-    for index, char in enumerate(value):
-        piece = unicodedata.normalize("NFKC", char)
-        piece = piece.replace("\u00ad", "").replace("\u00a0", " ").replace("\u202f", " ").replace("\u2212", "-").casefold()
+        while index < len(value):
+            next_char = value[index]
+            if unicodedata.combining(next_char):
+                index += 1
+                continue
+
+            chunk = value[start:index]
+            together = unicodedata.normalize("NFKC", chunk + next_char)
+            separate = (
+                unicodedata.normalize("NFKC", chunk)
+                + unicodedata.normalize("NFKC", next_char)
+            )
+            if together != separate:
+                index += 1
+                continue
+            break
+
+        yield start, index, value[start:index]
+
+
+def _normalized_with_spans(value: str) -> tuple[str, list[tuple[int, int]]]:
+    chars: list[str] = []
+    spans: list[tuple[int, int]] = []
+    pending_space: tuple[int, int] | None = None
+
+    for start, end, chunk in _normalization_clusters(value):
+        piece = unicodedata.normalize("NFKC", chunk)
+        piece = (
+            piece.replace("\u00ad", "")
+            .replace("\u00a0", " ")
+            .replace("\u202f", " ")
+            .replace("\u2212", "-")
+            .casefold()
+        )
         for out in piece:
             if out.isspace():
-                if chars and chars[-1] != " " and pending_space is None:
-                    pending_space = index
+                if chars:
+                    if pending_space is None:
+                        pending_space = (start, end)
+                    else:
+                        pending_space = (pending_space[0], end)
                 continue
+
             if pending_space is not None:
                 chars.append(" ")
-                offsets.append(pending_space)
+                spans.append(pending_space)
                 pending_space = None
-            chars.append(out)
-            offsets.append(index)
 
-    return "".join(chars), offsets
+            chars.append(out)
+            spans.append((start, end))
+
+    return "".join(chars), spans
 
 
 def _token_spans(value: str) -> list[tuple[str, int, int]]:
+    normalized, source_spans = _normalized_with_spans(value)
     spans: list[tuple[str, int, int]] = []
-    for match in re.finditer(r"[\w\u2212-]+", value, flags=re.UNICODE):
-        for token in token_text(match.group(0)).split():
-            spans.append((token, match.start(), match.end()))
+    for match in re.finditer(r"[\w-]+", normalized, flags=re.UNICODE):
+        start = source_spans[match.start()][0]
+        end = source_spans[match.end() - 1][1]
+        spans.append((match.group(0), start, end))
     return spans
 
 
@@ -287,12 +326,15 @@ def _match_texts(quote: str, source: str, limit: int | None = 1) -> list[_QuoteM
         end = start + len(quote)
         return [_QuoteMatch(score=1.0, start=start, end=end, text=source[start:end], method="exact")]
 
-    normalized_source, offsets = _normalized_with_offsets(source)
+    normalized_source, source_spans = _normalized_with_spans(source)
     pos = normalized_source.find(q)
-    if pos >= 0:
-        start = offsets[pos]
-        end = offsets[pos + len(q) - 1] + 1
-        return [_QuoteMatch(score=1.0, start=start, end=end, text=source[start:end], method="normalized")]
+    while pos >= 0:
+        start = source_spans[pos][0]
+        end = source_spans[pos + len(q) - 1][1]
+        matched_text = source[start:end]
+        if normalize_text(matched_text) == q:
+            return [_QuoteMatch(score=1.0, start=start, end=end, text=matched_text, method="normalized")]
+        pos = normalized_source.find(q, pos + 1)
 
     return _fuzzy_matches(quote, source, limit)
 

@@ -2,27 +2,13 @@
 
 ## Unreleased
 
-- preserve negative numeric signs, normalize Unicode minus, and keep explicit plus compatible with unsigned positive values;
-- fail closed on locale-sensitive single punctuation separators with three trailing digits instead of conflating forms such as `12,500` and `12.5`;
-- normalize unambiguous repeated/mixed thousands formats while keeping numeric fuzzy-match anchoring sign-aware;
-- optionally bind a Polish statutory citation in a claim to legal-unit metadata on the matched source;
-- parse common Polish statutory citations into structured article/paragraph/subsection/point/letter fields with original source offsets;
-- include the adversarial JSONL fixture in source distributions;
-- check the quoted numeric sequence and claim numbers against the actual matched fragment when source-number checking is enabled;
-- expose `evidence_numbers` separately from corpus-wide `source_numbers`, including on numeric failures;
-- reject a missing match even when its similarity threshold is zero;
-- preserve the two nonblocking PR #7 follow-up findings as explicit expected-failure tests;
-- refine fuzzy windows within a fixed comparison budget and consider alternate verified fragments, including separate matches on the same page, when the highest-similarity fragment has an incompatible numeric sequence;
-- reserve fuzzy-match budget for number-aligned windows and distribute textual anchors across the page so late evidence is not starved by earlier repeated fragments;
-- keep the new `ClaimResult.evidence_numbers` field keyword-only so existing positional constructor calls retain their meaning;
-- return `unverified` for blank claims and claims without usable content tokens;
-- apply the overlap check to short claims, and reject zero overlap even with a zero threshold;
-- remove `Policy.min_content_stems_for_support` (alpha API change); use named arguments without that keyword;
-- replace the old bypass test with regression cases and positive controls, including batch and CLI results;
-- document status meanings and the remaining numeric, Unicode, and semantic limitations;
-- make Policy settings after the first three fields keyword-only so old positional calls cannot silently change numeric checks;
-- exclude separator-only tokens from lexical comparisons while retaining hyphenated words;
-- reuse numeric normalization for digit-only integer tokens in overlap scoring, including leading zeros.
+- add optional parsing and source binding for common Polish statutory citations;
+- validate claim and quote numbers against the actual matched source fragment, with `evidence_numbers` for diagnostics;
+- improve fuzzy/OCR evidence selection while keeping comparison work bounded;
+- preserve numeric signs, support common grouped formats, and stop guessing ambiguous forms such as `12,500`;
+- treat blank or unusable claims as `unverified` and apply lexical-overlap checks to short claims;
+- make later `Policy` options keyword-only and keep new `ClaimResult` fields from shifting existing positional calls;
+- include adversarial fixtures in source distributions and keep packaging covered by CI.
 
 ## 0.2.0
 

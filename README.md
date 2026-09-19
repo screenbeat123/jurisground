@@ -1,25 +1,26 @@
 # JurisGround
 
-**Check quoted text and numeric tokens against sources; report lexical overlap.**
+**Check quotes, numbers, and source links in LLM output.**
 
 [![CI](https://github.com/screenbeat123/jurisground/actions/workflows/ci.yml/badge.svg)](https://github.com/screenbeat123/jurisground/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.10--3.12-blue)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue)
 
-JurisGround locates quotations in supplied sources and runs numeric-token and lexical-overlap checks. It reports the matching fragment and rule violations. It does not decide whether a claim is true or follows logically from a source.
+JurisGround checks whether quoted text can be found in supplied sources, whether numbers agree with the matched evidence, and whether cited source IDs resolve. It also reports simple lexical overlap. It does not decide whether a claim is true or logically follows from a source.
 
-> JurisGround is the public extraction of grounding checks from a longer-lived private legal-AI project. The Git history in this repository starts at the extraction point; it does not represent the age or full history of the parent system.
+> JurisGround was extracted from a longer-lived private legal-AI project. This repository starts at the extraction point; the parent project's private history and data are not included.
 
-The public package is intentionally small and has no hosted-model dependency.
+The package is small, deterministic, and makes no network calls.
 
 ## What it checks
 
-- **Quote integrity** — can the cited quotation be found in the cited source?
-- **Evidence location** — which source fragment matched, and where is it on the page?
-- **Numeric checks** — do parsed numbers in the quote and claim agree with the matched source fragment?
-- **Lexical overlap** — how much of the claim wording appears in the quoted evidence? This score does not establish agreement in meaning.
-- **Source provenance** — are cited source IDs present and resolvable?
-- **Fail-closed batch validation** — one failed claim can block the batch from being treated as grounded.
+- **Quote matching** — can the quoted text be found in the cited source?
+- **Evidence span** — which source fragment matched, and where is it on the page?
+- **Number checks** — do numbers in the claim and quote agree with that fragment?
+- **Source IDs** — are the cited sources available?
+- **Polish legal citations** — optionally bind a parsed statutory citation to metadata on the matched source.
+- **Lexical overlap** — how much of the claim wording appears in the quoted evidence?
+- **Batch validation** — a failed claim keeps the whole batch from passing.
 
 ## Three failure cases
 
@@ -39,9 +40,9 @@ Generated text: `The invoice total was PLN 98 250.`
 
 Result: **FAIL — number_not_in_quote / number_not_in_source**
 
-### 3. Real citation, unsupported claim
+### 3. Real quote, weak claim overlap
 
-A quote can exist in the source but still fail to support the generated claim. JurisGround scores claim-to-quote and claim-to-source support separately so a valid citation is not automatically treated as evidence.
+A quote can be real while the generated claim adds wording that is not present in it. JurisGround reports claim-to-quote and claim-to-source lexical overlap separately.
 
 ## Install
 
@@ -95,22 +96,21 @@ Abbreviated failure output:
 
 ## Python
 
-The public API exposes `Source`, `Claim`, `Policy`, `verify_claim`, and `verify_batch`.
+The main API is `Source`, `Claim`, `Policy`, `verify_claim`, and `verify_batch`. `parse_polish_citations()` and `PolishLegalCitation` provide the optional Polish citation parser.
 
 A quote match above the similarity threshold also returns `matched_text`, `matched_start`, `matched_end`, and `match_method`. Offsets are relative to the original matched page text and use normal Python slice semantics: `matched_start` is inclusive and `matched_end` is exclusive. `match_method` is `exact`, `normalized`, or `fuzzy`. These fields stay empty when no candidate meets the similarity threshold. A located fragment can still fail numeric or lexical checks; its presence is not approval of the quote or claim.
 
 ## Numeric evidence
 
-With `require_numbers_in_source=True` (the default), numeric checks use the located source fragment as well as the cited corpus. `quote_number_mismatch` means the quote and that fragment have different parsed number sequences, including order and repetition. `number_not_in_evidence` means a claim number is missing from that fragment. A matching number elsewhere in the document, on another page, or in another cited source does not satisfy this check.
+With `require_numbers_in_source=True` (the default), numbers in the quote are compared with the selected source fragment. A number elsewhere in the document, on another page, or in another cited source does not count as evidence for that claim.
 
-`evidence_numbers` contains the numbers parsed from `matched_text`. It is `null` when no above-threshold candidate is available, and `[]` when the candidate contains no numbers. `source_numbers` keeps its existing meaning: all numbers from the cited material, for diagnostics. It is not the basis for approving a number absent from the matched fragment.
+`quote_number_mismatch` means the quote and matched fragment contain different number sequences. `number_not_in_evidence` means a claim number is missing from the matched fragment. `evidence_numbers` shows the numbers from `matched_text`; `source_numbers` remains a corpus-wide diagnostic.
 
-`require_numbers_in_quote` controls claim-to-quote membership. `require_numbers_in_source` controls the source and matched-fragment checks, including quote-number integrity. Setting the latter to `False` explicitly disables those checks; the reported evidence numbers do not mean they were enforced.
+For fuzzy or OCR matches, JurisGround can choose another above-threshold fragment when the best text match has different numbers. Candidate search is bounded. This still does not tell you what a number refers to or whether its unit is correct.
 
-For fuzzy matching, JurisGround checks other above-threshold fragments, including separate candidates on the same page, before failing solely because the highest-similarity candidate has a different numeric sequence. Adjacent window boundaries are refined under a fixed comparison budget so a nearby date or amount is less likely to be pulled into an otherwise valid match without making long fuzzy checks grow quadratically. If no numerically compatible candidate exists, the best verified fragment is still returned with the numeric findings. Numeric membership does not establish who a number refers to, its unit, or its legal significance. Signed integers preserve a leading minus; the Unicode minus sign `−` is normalized to `-`. An explicit plus is treated as positive, so `+100` and `100` compare equally. Negative zero is normalized to zero.
+Signs are preserved: `-100` and `−100` are both negative, while `+100` matches `100`. Thousands and decimal separators are handled conservatively. Clear formats such as `1,234,567` or `12.500,00` are normalized. Ambiguous forms such as `12,500` are kept as written rather than guessed as `12.5` or `12500`.
 
-Separator handling is deliberately conservative rather than locale-inferred. Space/NBSP grouping and unambiguous repeated or mixed grouping forms are normalized numerically. A single comma or dot followed by exactly three digits is kept separator-sensitive because forms such as `12,500` and `12.500` are ambiguous across locales. As a result, `12,500`, `12.500`, `12500`, and `12.5` are not silently treated as the same value.
-
+`require_numbers_in_quote=False` disables claim-to-quote number membership. `require_numbers_in_source=False` disables source and matched-fragment number checks.
 
 ## Result status
 
@@ -120,7 +120,7 @@ Separator handling is deliberately conservative rather than locale-inferred. Spa
 
 Claims with one or two usable tokens are checked too. Zero lexical overlap always fails, even when `min_claim_support` is zero. Positive overlap must meet the configured threshold. An `unverified` result may return before quote matching; default zero scores on that path are not measurements.
 
-Tokens containing only separators, such as `---` or `___`, are not usable claim content. Digit-only integer tokens use the existing numeric normalizer in overlap scoring: `00100` and `100` compare equally in either direction, including inside longer text. This is not a new rule for signed numbers or locale-sensitive separators.
+Tokens containing only separators, such as `---` or `___`, are not usable claim content. Digit-only integers use the same numeric normalization during lexical scoring, so `00100` and `100` compare equally.
 
 ### Unreleased API change
 
@@ -140,13 +140,9 @@ pytest
 
 **This is a regression suite, not a real-world legal accuracy benchmark.**
 
-## Design principles
+## Design
 
-1. **Deterministic before probabilistic.** Validation should be inspectable and reproducible.
-2. **Evidence over confidence.** A model's confidence score is not source support.
-3. **Fail closed.** Missing evidence should not silently become a PASS.
-4. **No model lock-in.** The validator does not require a hosted LLM.
-5. **No private corpus required.** Tests use synthetic fixtures.
+JurisGround is deterministic and offline. Missing evidence fails closed instead of becoming a pass, and the core does not require a hosted model. Tests use synthetic fixtures rather than private legal data.
 
 ## Scope and limitations
 
@@ -158,11 +154,11 @@ The lexical support score is intentionally simple and auditable. It is a guardra
 
 Lexical overlap can miss negation and changes in who did what. For example, `did not pay` and `did pay` can receive the same score. A matching quote is not proof that a paraphrase follows from it.
 
-Locale-specific interpretation beyond the conservative separator rules above and canonically equivalent Unicode spans still need fixes. With both numeric checks disabled, the lexical scorer can also conflate `00.001` with `0.1`; the dingbat digit `➀` is currently treated as unassessable content. These two reported cases are tracked as strict expected-failure tests, not counted as passing tests. Do not use this alpha version as the sole approval gate for consequential documents. Empty/short-claim validation and numeric binding to the matched fragment have been addressed. The other findings above remain unresolved.
+The number parser does not infer a locale beyond the conservative separator rules above, and it does not know what a number refers to. Canonically equivalent Unicode text can still miss a quote match. With numeric checks disabled, lexical scoring can also conflate `00.001` with `0.1`; the dingbat digit `➀` is still unsupported. Those two cases are tracked as expected failures. Do not use this alpha version as the sole approval gate for consequential documents.
 
-## Why legal AI first?
+## Origin
 
-The parent project is a local-first Polish legal research and drafting system where unsupported claims, wrong amounts, and fabricated quotations have disproportionate cost. JurisGround extracts the domain-neutral verification core. Domain-specific normalization stays outside the public package until there is a reusable adapter with a clear API.
+JurisGround came out of a local-first Polish legal research and drafting project, where wrong quotes and amounts are costly. The public package contains the reusable checks, not the parent application's private data or workflow. See [docs/origin.md](docs/origin.md) for more context.
 
 ## Roadmap
 

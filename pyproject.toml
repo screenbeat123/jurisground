@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "jurisground"
 version = "0.2.0"
-description = "Verify that LLM claims are supported by cited sources"
+description = "Check LLM quotes, numbers, and citations against source text"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "Apache-2.0"}

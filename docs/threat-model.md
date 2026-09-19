@@ -13,7 +13,7 @@ JurisGround is meant to catch mechanical grounding failures between generated te
 
 ## Out of scope
 
-JurisGround does not determine whether a source is true, current, authoritative, legally controlling, complete, or correctly interpreted. It is not a legal reasoning engine and does not establish factual truth. A PASS means only that the configured checks passed.
+JurisGround does not judge whether a source is correct, current, legally controlling, or properly interpreted. It is not a legal reasoning engine. A PASS means only that the configured checks passed.
 
 ## Security posture
 

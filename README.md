@@ -1,6 +1,6 @@
 # JurisGround
 
-**Check quotes, numbers, and source links in LLM output.**
+**Check quotes, numbers, and source references in LLM output.**
 
 [![CI](https://github.com/screenbeat123/jurisground/actions/workflows/ci.yml/badge.svg)](https://github.com/screenbeat123/jurisground/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.10--3.12-blue)
@@ -146,15 +146,15 @@ JurisGround is deterministic and offline. Missing evidence fails closed instead 
 
 ## Scope and limitations
 
-JurisGround verifies evidence linkage. It does **not** establish that a source is true, current, authoritative, legally controlling, complete, or correctly interpreted. A PASS means the configured grounding checks passed — not that the claim is factually or legally correct.
+JurisGround checks mechanical links between a claim and its cited evidence. It does **not** judge whether a source is correct, current, legally controlling, or properly interpreted. A PASS means the configured checks passed, not that the claim is factually or legally correct.
 
-The lexical support score is intentionally simple and auditable. It is a guardrail, not semantic entailment. The default thresholds are heuristic baselines carried over from the parent system; they are configurable and are not presented as universally calibrated values.
+Lexical overlap is deliberately simple. It is not semantic entailment. The default thresholds came from the parent project and are heuristics, not calibrated guarantees.
 
 ### Known limitations still under review
 
 Lexical overlap can miss negation and changes in who did what. For example, `did not pay` and `did pay` can receive the same score. A matching quote is not proof that a paraphrase follows from it.
 
-The number parser does not infer a locale beyond the conservative separator rules above, and it does not know what a number refers to. Canonically equivalent Unicode text can still miss a quote match. With numeric checks disabled, lexical scoring can also conflate `00.001` with `0.1`; the dingbat digit `➀` is still unsupported. Those two cases are tracked as expected failures. Do not use this alpha version as the sole approval gate for consequential documents.
+The number parser does not infer a locale beyond the conservative separator rules above, and it does not know what a number refers to. Canonically equivalent Unicode text can still miss a quote match. With numeric checks disabled, lexical scoring can also conflate `00.001` with `0.1`; the dingbat digit `➀` is still unsupported. Those two cases are tracked as expected failures. A PASS is only a grounding check; it is not final approval of a document.
 
 ## Origin
 

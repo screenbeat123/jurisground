@@ -10,6 +10,8 @@
 - reject a missing match even when its similarity threshold is zero;
 - preserve the two nonblocking PR #7 follow-up findings as explicit expected-failure tests;
 - refine fuzzy windows within a fixed comparison budget and consider alternate verified fragments, including separate matches on the same page, when the highest-similarity fragment has an incompatible numeric sequence;
+- reserve fuzzy-match budget for number-aligned windows and distribute textual anchors across the page so late evidence is not starved by earlier repeated fragments;
+- keep the new `ClaimResult.evidence_numbers` field keyword-only so existing positional constructor calls retain their meaning;
 - return `unverified` for blank claims and claims without usable content tokens;
 - apply the overlap check to short claims, and reject zero overlap even with a zero threshold;
 - remove `Policy.min_content_stems_for_support` (alpha API change); use named arguments without that keyword;

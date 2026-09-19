@@ -4,7 +4,8 @@ import sys
 
 import pytest
 
-from jurisground import Claim, Policy, Source, verify_batch, verify_claim
+from jurisground import Claim, ClaimResult, Policy, Source, verify_batch, verify_claim
+from jurisground.models import Finding
 
 
 REPAIR = "The contractor completed the roof repair on 12 May 2026 for EUR 1900."
@@ -317,4 +318,34 @@ def test_valid_numeric_ocr_match_is_not_lost_after_many_wrong_same_page_candidat
     )
     assert result.status == "pass"
     assert result.evidence_numbers == ["12", "2026", "1900"]
+    assert "cornpleted" in result.matched_text
+
+
+def test_claim_result_new_numeric_field_does_not_shift_existing_positional_api():
+    finding = Finding("legacy", "kept")
+    result = ClaimResult(
+        "C", "fail", "S1", 1, 1.0, "text", 0, 4, "exact",
+        1.0, 1.0, [], [], [],
+        {"article": "471"}, {"article": "472"}, [finding],
+    )
+    assert result.claim_legal_citation == {"article": "471"}
+    assert result.evidence_legal_citation == {"article": "472"}
+    assert result.findings == [finding]
+    assert result.evidence_numbers is None
+
+
+@pytest.mark.parametrize("fragment_count", [3, 10, 20])
+def test_late_numeric_ocr_candidate_is_not_starved_by_window_budget(fragment_count):
+    quote = "The contractor completed the roof repair on the apartment building for the agreed amount of EUR 1900."
+    wrong = quote.replace("1900", "9900")
+    right = quote.replace("completed", "cornpleted")
+    source = " ".join([wrong] * (fragment_count - 1) + [right])
+
+    result = verify_claim(
+        Claim("C1", quote, quote, ("S1",)),
+        [Source("S1", source, is_ocr=True)],
+    )
+
+    assert result.status == "pass"
+    assert result.evidence_numbers == ["1900"]
     assert "cornpleted" in result.matched_text

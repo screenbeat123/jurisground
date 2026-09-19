@@ -7,10 +7,13 @@ from difflib import SequenceMatcher
 
 from .models import Source
 from .normalize import normalize_text, token_text
+from .numbers import number_tokens
 
 
 _MAX_WINDOWS = 900
 _REFINEMENT_BUDGET = 160
+_MAX_ANCHOR_POSITIONS = 120
+_NUMERIC_WINDOW_BUDGET = _MAX_WINDOWS // 3
 
 
 @dataclass(frozen=True)
@@ -53,6 +56,72 @@ def _token_spans(value: str) -> list[tuple[str, int, int]]:
         for token in token_text(match.group(0)).split():
             spans.append((token, match.start(), match.end()))
     return spans
+
+
+def _sample_evenly(values: list[int] | list[tuple[int, int]], limit: int):
+    if limit <= 0 or not values:
+        return []
+    if len(values) <= limit:
+        return list(values)
+    if limit == 1:
+        return [values[len(values) // 2]]
+
+    sampled = []
+    seen = set()
+    for index in range(limit):
+        position = round(index * (len(values) - 1) / (limit - 1))
+        value = values[position]
+        if value not in seen:
+            sampled.append(value)
+            seen.add(value)
+    return sampled
+
+
+def _canonical_integer_token(token: str) -> str | None:
+    if not token.isdigit():
+        return None
+    values = number_tokens(token)
+    return values[0] if len(values) == 1 else None
+
+
+def _numeric_candidate_windows(quote_tokens: list[str], source_tokens: list[str]) -> list[tuple[int, int]]:
+    quote_positions: dict[str, list[int]] = {}
+    for index, token in enumerate(quote_tokens):
+        value = _canonical_integer_token(token)
+        if value is not None:
+            quote_positions.setdefault(value, []).append(index)
+
+    if not quote_positions:
+        return []
+
+    source_positions: dict[str, list[int]] = {value: [] for value in quote_positions}
+    for index, token in enumerate(source_tokens):
+        value = _canonical_integer_token(token)
+        if value in source_positions:
+            source_positions[value].append(index)
+
+    groups = [
+        (len(positions), value, positions)
+        for value, positions in source_positions.items()
+        if positions
+    ]
+    groups.sort(key=lambda item: item[0])
+
+    windows: list[tuple[int, int]] = []
+    group_count = max(1, len(groups))
+    for _, value, positions in groups:
+        quote_indices = quote_positions[value]
+        per_quote_limit = max(1, _NUMERIC_WINDOW_BUDGET // (group_count * len(quote_indices)))
+        for quote_index in quote_indices:
+            for source_index in _sample_evenly(positions, per_quote_limit):
+                first = source_index - quote_index
+                last = first + len(quote_tokens)
+                if first < 0 or last > len(source_tokens) or last - first < 3:
+                    continue
+                windows.append((first, last))
+
+    deduped = list(dict.fromkeys(windows))
+    return deduped[:_NUMERIC_WINDOW_BUDGET]
 
 
 def _fuzzy_match(source: str, source_spans, source_tokens, target: str, first: int, last: int, score: float) -> _QuoteMatch:
@@ -128,37 +197,51 @@ def _fuzzy_matches(quote: str, source: str, limit: int | None) -> list[_QuoteMat
         return []
 
     source_tokens = [token for token, _, _ in source_spans]
-    anchors = sorted({token for token in quote_tokens if len(token) >= 5}, key=len, reverse=True)[:4]
-    positions = [i for i, token in enumerate(source_tokens) if token in anchors]
+    anchor_candidates = {token for token in quote_tokens if len(token) >= 5}
+    anchors = sorted(
+        anchor_candidates,
+        key=lambda token: (source_tokens.count(token), -len(token), token),
+    )[:4]
+    all_positions = [i for i, token in enumerate(source_tokens) if token in anchors]
+    positions = _sample_evenly(all_positions, _MAX_ANCHOR_POSITIONS)
     n = len(quote_tokens)
-    candidates: list[tuple[int, int]] = []
 
-    for pos in positions[:120]:
+    priority_candidates = _numeric_candidate_windows(quote_tokens, source_tokens)
+    coverage_candidates: list[tuple[int, int]] = []
+
+    for pos in positions:
         lo = max(0, pos - n)
         hi = min(len(source_spans), pos + 2 * n)
         sizes = {max(3, int(n * 0.8)), n, int(n * 1.2) + 1}
         for size in sizes:
             step = max(1, n // 5)
             for off in range(lo, max(lo + 1, hi - size + 1), step):
-                candidates.append((off, min(len(source_spans), off + size)))
+                coverage_candidates.append((off, min(len(source_spans), off + size)))
 
-    if not candidates:
+    if not coverage_candidates:
         step = max(1, n // 3)
-        candidates = [(i, min(len(source_spans), i + n)) for i in range(0, max(1, len(source_spans) - n + 1), step)]
+        coverage_candidates = [
+            (i, min(len(source_spans), i + n))
+            for i in range(0, max(1, len(source_spans) - n + 1), step)
+        ]
+
+    priority_candidates = list(dict.fromkeys(priority_candidates))
+    priority_set = set(priority_candidates)
+    coverage_candidates = [
+        bounds for bounds in dict.fromkeys(coverage_candidates)
+        if bounds not in priority_set
+    ]
+
+    priority_candidates = priority_candidates[:_NUMERIC_WINDOW_BUDGET]
+    remaining = _MAX_WINDOWS - len(priority_candidates)
+    selected_candidates = priority_candidates + _sample_evenly(coverage_candidates, remaining)
 
     target = " ".join(quote_tokens)
     scored: list[tuple[float, int, int]] = []
-    seen: set[tuple[int, int]] = set()
-    for first, last in candidates:
-        bounds = (first, last)
-        if bounds in seen:
-            continue
-        seen.add(bounds)
+    for first, last in selected_candidates:
         candidate = " ".join(source_tokens[first:last])
         score = SequenceMatcher(None, target, candidate).ratio()
         scored.append((score, first, last))
-        if len(scored) >= _MAX_WINDOWS:
-            break
         if limit == 1 and score >= 0.985:
             break
 

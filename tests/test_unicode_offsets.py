@@ -88,3 +88,30 @@ def test_fuzzy_match_with_decomposed_text_keeps_combining_mark_in_span():
     assert result.match_method == "fuzzy"
     assert source[result.matched_start:result.matched_end] == result.matched_text
     assert unicodedata.normalize("NFC", result.matched_text) == clean[:-1]
+
+
+def test_normalized_match_does_not_start_inside_compatibility_expansion():
+    source = "The ofﬁce recorded the payment."
+    quote = "ICE recorded the payment."
+
+    result = verify_claim(
+        Claim("C1", quote, quote, ("S1",)),
+        [Source("S1", source)],
+    )
+
+    assert result.match_method != "normalized"
+
+
+def test_normalized_match_skips_partial_expansion_and_uses_later_full_span():
+    source = "The ofﬁce recorded the payment. Later the ice recorded the payment."
+    quote = "ICE recorded the payment."
+
+    result = verify_claim(
+        Claim("C1", quote, quote, ("S1",)),
+        [Source("S1", source)],
+    )
+
+    assert result.status == "pass"
+    assert result.match_method == "normalized"
+    assert result.matched_text == "ice recorded the payment."
+    assert source[result.matched_start:result.matched_end] == result.matched_text

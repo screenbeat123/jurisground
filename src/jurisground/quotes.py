@@ -330,10 +330,13 @@ def _match_texts(quote: str, source: str, limit: int | None = 1) -> list[_QuoteM
 
     normalized_source, source_spans = _normalized_with_spans(source)
     pos = normalized_source.find(q)
-    if pos >= 0:
+    while pos >= 0:
         start = source_spans[pos][0]
         end = source_spans[pos + len(q) - 1][1]
-        return [_QuoteMatch(score=1.0, start=start, end=end, text=source[start:end], method="normalized")]
+        matched_text = source[start:end]
+        if normalize_text(matched_text) == q:
+            return [_QuoteMatch(score=1.0, start=start, end=end, text=matched_text, method="normalized")]
+        pos = normalized_source.find(q, pos + 1)
 
     return _fuzzy_matches(quote, source, limit)
 

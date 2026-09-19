@@ -34,7 +34,7 @@ def _normalized_with_offsets(value: str) -> tuple[str, list[int]]:
 
     for index, char in enumerate(value):
         piece = unicodedata.normalize("NFKC", char)
-        piece = piece.replace("\u00ad", "").replace("\u00a0", " ").replace("\u202f", " ").casefold()
+        piece = piece.replace("\u00ad", "").replace("\u00a0", " ").replace("\u202f", " ").replace("\u2212", "-").casefold()
         for out in piece:
             if out.isspace():
                 if chars and chars[-1] != " " and pending_space is None:
@@ -52,7 +52,7 @@ def _normalized_with_offsets(value: str) -> tuple[str, list[int]]:
 
 def _token_spans(value: str) -> list[tuple[str, int, int]]:
     spans: list[tuple[str, int, int]] = []
-    for match in re.finditer(r"[\w-]+", value, flags=re.UNICODE):
+    for match in re.finditer(r"[\w\u2212-]+", value, flags=re.UNICODE):
         for token in token_text(match.group(0)).split():
             spans.append((token, match.start(), match.end()))
     return spans
@@ -78,10 +78,11 @@ def _sample_evenly(values: list[int] | list[tuple[int, int]], limit: int):
 
 
 def _canonical_integer_token(token: str) -> str | None:
-    if not token.isdigit():
-        return None
     values = number_tokens(token)
-    return values[0] if len(values) == 1 else None
+    if len(values) != 1:
+        return None
+    value = values[0]
+    return value if re.fullmatch(r"-?\d+", value) else None
 
 
 def _numeric_candidate_windows(quote_tokens: list[str], source_tokens: list[str]) -> list[tuple[int, int]]:

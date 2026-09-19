@@ -107,7 +107,10 @@ With `require_numbers_in_source=True` (the default), numeric checks use the loca
 
 `require_numbers_in_quote` controls claim-to-quote membership. `require_numbers_in_source` controls the source and matched-fragment checks, including quote-number integrity. Setting the latter to `False` explicitly disables those checks; the reported evidence numbers do not mean they were enforced.
 
-For fuzzy matching, JurisGround checks other above-threshold fragments, including separate candidates on the same page, before failing solely because the highest-similarity candidate has a different numeric sequence. Adjacent window boundaries are refined under a fixed comparison budget so a nearby date or amount is less likely to be pulled into an otherwise valid match without making long fuzzy checks grow quadratically. If no numerically compatible candidate exists, the best verified fragment is still returned with the numeric findings. Numeric membership does not establish who a number refers to, its unit, or its legal significance. The existing number parser still has the sign and separator limitations listed below.
+For fuzzy matching, JurisGround checks other above-threshold fragments, including separate candidates on the same page, before failing solely because the highest-similarity candidate has a different numeric sequence. Adjacent window boundaries are refined under a fixed comparison budget so a nearby date or amount is less likely to be pulled into an otherwise valid match without making long fuzzy checks grow quadratically. If no numerically compatible candidate exists, the best verified fragment is still returned with the numeric findings. Numeric membership does not establish who a number refers to, its unit, or its legal significance. Signed integers preserve a leading minus; the Unicode minus sign `−` is normalized to `-`. An explicit plus is treated as positive, so `+100` and `100` compare equally. Negative zero is normalized to zero.
+
+Separator handling is deliberately conservative rather than locale-inferred. Space/NBSP grouping and unambiguous repeated or mixed grouping forms are normalized numerically. A single comma or dot followed by exactly three digits is kept separator-sensitive because forms such as `12,500` and `12.500` are ambiguous across locales. As a result, `12,500`, `12.500`, `12500`, and `12.5` are not silently treated as the same value.
+
 
 ## Result status
 
@@ -155,7 +158,7 @@ The lexical support score is intentionally simple and auditable. It is a guardra
 
 Lexical overlap can miss negation and changes in who did what. For example, `did not pay` and `did pay` can receive the same score. A matching quote is not proof that a paraphrase follows from it.
 
-Signed and locale-sensitive numbers and canonically equivalent Unicode spans still need fixes. With both numeric checks disabled, the lexical scorer can also conflate `00.001` with `0.1`; the dingbat digit `➀` is currently treated as unassessable content. These two reported cases are tracked as strict expected-failure tests, not counted as passing tests. Do not use this alpha version as the sole approval gate for consequential documents. Empty/short-claim validation and numeric binding to the matched fragment have been addressed. The other findings above remain unresolved.
+Locale-specific interpretation beyond the conservative separator rules above and canonically equivalent Unicode spans still need fixes. With both numeric checks disabled, the lexical scorer can also conflate `00.001` with `0.1`; the dingbat digit `➀` is currently treated as unassessable content. These two reported cases are tracked as strict expected-failure tests, not counted as passing tests. Do not use this alpha version as the sole approval gate for consequential documents. Empty/short-claim validation and numeric binding to the matched fragment have been addressed. The other findings above remain unresolved.
 
 ## Why legal AI first?
 

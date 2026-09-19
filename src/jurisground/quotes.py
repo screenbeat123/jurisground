@@ -31,28 +31,26 @@ def _normalization_clusters(value: str):
     index = 0
     while index < len(value):
         start = index
-        chunk = value[index]
         index += 1
 
         while index < len(value):
             next_char = value[index]
             if unicodedata.combining(next_char):
-                chunk += next_char
                 index += 1
                 continue
 
+            chunk = value[start:index]
             together = unicodedata.normalize("NFKC", chunk + next_char)
             separate = (
                 unicodedata.normalize("NFKC", chunk)
                 + unicodedata.normalize("NFKC", next_char)
             )
             if together != separate:
-                chunk += next_char
                 index += 1
                 continue
             break
 
-        yield start, index, chunk
+        yield start, index, value[start:index]
 
 
 def _normalized_with_spans(value: str) -> tuple[str, list[tuple[int, int]]]:

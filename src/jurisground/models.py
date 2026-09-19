@@ -66,6 +66,8 @@ class ClaimResult:
     claim_legal_citation: dict[str, str | None] | None = None
     evidence_legal_citation: dict[str, str | None] | None = None
     findings: list[Finding] = field(default_factory=list)
+    _: KW_ONLY
+    evidence_numbers: list[str] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

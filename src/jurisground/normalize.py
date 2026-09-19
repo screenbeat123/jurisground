@@ -16,7 +16,7 @@ _GENERIC_STOPWORDS = {
 
 def normalize_text(value: str) -> str:
     value = unicodedata.normalize("NFKC", value or "")
-    value = value.replace("\u00ad", "").replace("\u00a0", " ").replace("\u202f", " ")
+    value = value.replace("\u00ad", "").replace("\u00a0", " ").replace("\u202f", " ").replace("\u2212", "-")
     return re.sub(r"\s+", " ", value.casefold()).strip()
 
 
@@ -33,7 +33,7 @@ def content_tokens(value: str) -> list[str]:
     for token in token_text(value).split():
         if token in _GENERIC_STOPWORDS or not any(char.isalnum() for char in token):
             continue
-        if token.isdigit():
+        if token.isdigit() or (token.startswith("-") and token[1:].isdigit()):
             out.extend(number_tokens(token))
         elif len(token) >= 3:
             out.append(token)
@@ -43,5 +43,6 @@ def content_tokens(value: str) -> list[str]:
 def content_stems(value: str) -> list[str]:
     out = []
     for token in content_tokens(value):
-        out.append(token if token.isdigit() else (token[:5] if len(token) >= 5 else token))
+        is_integer = token.isdigit() or (token.startswith("-") and token[1:].isdigit())
+        out.append(token if is_integer else (token[:5] if len(token) >= 5 else token))
     return out

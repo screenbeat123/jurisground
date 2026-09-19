@@ -59,6 +59,8 @@ def _canonical_number(sign: str, body: str) -> str:
     # A single punctuation separator followed by exactly three digits is
     # locale-sensitive (for example 12,500 or 12.500). Keep the separator
     # instead of guessing whether it is a decimal or thousands marker.
+    if integer == "0" and not any(char != "0" for char in fraction):
+        return "0"
     value = f"{integer}{separator}{fraction}"
     return _with_sign(value, negative)
 

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- preserve negative numeric signs, normalize Unicode minus, and keep explicit plus compatible with unsigned positive values;
+- fail closed on locale-sensitive single punctuation separators with three trailing digits instead of conflating forms such as `12,500` and `12.5`;
+- normalize unambiguous repeated/mixed thousands formats while keeping numeric fuzzy-match anchoring sign-aware;
 - optionally bind a Polish statutory citation in a claim to legal-unit metadata on the matched source;
 - parse common Polish statutory citations into structured article/paragraph/subsection/point/letter fields with original source offsets;
 - include the adversarial JSONL fixture in source distributions;

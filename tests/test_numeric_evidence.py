@@ -321,12 +321,13 @@ def test_valid_numeric_ocr_match_is_not_lost_after_many_wrong_same_page_candidat
     assert "cornpleted" in result.matched_text
 
 
-def test_claim_result_new_numeric_field_does_not_shift_existing_positional_api():
+def test_claim_result_extensions_preserve_v020_positional_findings():
     finding = Finding("legacy", "kept")
     result = ClaimResult(
         "C", "fail", "S1", 1, 1.0, "text", 0, 4, "exact",
-        1.0, 1.0, [], [], [],
-        {"article": "471"}, {"article": "472"}, [finding],
+        1.0, 1.0, [], [], [], [finding],
+        claim_legal_citation={"article": "471"},
+        evidence_legal_citation={"article": "472"},
     )
     assert result.claim_legal_citation == {"article": "471"}
     assert result.evidence_legal_citation == {"article": "472"}

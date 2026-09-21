@@ -128,6 +128,8 @@ Tokens containing only separators, such as `---` or `___`, are not usable claim 
 
 Only the first three fields (`quote_threshold`, `ocr_quote_threshold`, `min_claim_support`) accept positional arguments. All later settings, starting with `max_expansion_ratio`, must be named. Old calls with more than three positional arguments now raise `TypeError` rather than silently shifting values and changing which numeric checks run. For example, use `Policy(require_numbers_in_quote=False)` to disable only the quote-number check; the source-number check stays enabled.
 
+`ClaimResult` preserves the 0.2.0 positional constructor: the fifteenth argument is `findings`. New fields (`claim_legal_citation`, `evidence_legal_citation`, and `evidence_numbers`) must be passed by name. The 17-argument layout introduced during unreleased development now raises `TypeError`; move its two legal-citation arguments to named fields and keep `findings` in position fifteen or pass it by name.
+
 ## Regression cases
 
 The repository includes a small synthetic regression set covering fabricated quotations, changed numeric facts, missing citations, OCR-like text, unsupported claims, and valid grounded claims.

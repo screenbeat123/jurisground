@@ -43,7 +43,10 @@ def verify_claim(claim: Claim, sources: list[Source], policy: Policy | None = No
     quote_numbers = number_tokens(claim.quote)
 
     page_limit = None if policy.require_numbers_in_source else 1
-    matches = quote_matches(claim.quote, cited, per_page_limit=page_limit)
+    matches = quote_matches(
+        claim.quote, cited, per_page_limit=page_limit,
+        require_numeric_boundaries=policy.require_numbers_in_source,
+    )
 
     def threshold_for(candidate) -> float:
         source = source_by_id.get(candidate.source_id or "")
@@ -66,7 +69,9 @@ def verify_claim(claim: Claim, sources: list[Source], policy: Policy | None = No
     elif verified_matches:
         match = verified_matches[0]
     else:
-        match = matches[0] if matches else best_quote_match(claim.quote, cited)
+        match = matches[0] if matches else best_quote_match(
+            claim.quote, cited, require_numeric_boundaries=policy.require_numbers_in_source,
+        )
 
     matched_source = source_by_id.get(match.source_id or "")
     quote_threshold = policy.ocr_quote_threshold if (matched_source and matched_source.is_ocr) else policy.quote_threshold

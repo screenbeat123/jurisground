@@ -14,4 +14,4 @@ __all__ = [
     "verify_batch",
     "verify_claim",
 ]
-__version__ = "0.2.0"
+__version__ = "0.3.0"

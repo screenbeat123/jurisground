@@ -1,15 +1,16 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 — 2026-09-22
 
-- match canonically equivalent Unicode while keeping offsets into the original source text;
-- add optional parsing and source binding for common Polish statutory citations;
-- validate claim and quote numbers against the actual matched source fragment, with `evidence_numbers` for diagnostics;
-- improve fuzzy/OCR evidence selection while keeping comparison work bounded;
-- preserve numeric signs, support common grouped formats, and stop guessing ambiguous forms such as `12,500`;
-- treat blank or unusable claims as `unverified` and apply lexical-overlap checks to short claims;
-- make later `Policy` options keyword-only and keep new `ClaimResult` fields from shifting existing positional calls;
-- include adversarial fixtures in source distributions and keep packaging covered by CI.
+- Compare claim and quote numbers with the matched source fragment, and expose `evidence_numbers` in results.
+- Match whole numeric tokens so `100` cannot use part of `-100` or `1000` as evidence. Preserve signs and common grouped formats without guessing ambiguous separators such as `12,500`.
+- Find the correct OCR fragment when a closer text match contains the wrong number.
+- Match equivalent Unicode text while keeping offsets into the original source.
+- Parse common Polish statutory citations and optionally bind them to source metadata. Reject unsupported ranges and malformed unit continuations without shortening them into another citation.
+- Treat blank or unusable claims as `unverified`, and check lexical overlap for short claims too.
+- Remove `Policy.min_content_stems_for_support` and require named arguments after the first three settings. Preserve the 0.2.0 `ClaimResult` constructor, with `findings` in position fifteen; new result fields require names.
+- Report invalid CLI input without a traceback, accept UTF-8 BOM files, and preserve Unicode JSON output on Windows consoles.
+- Include the synthetic demo and adversarial regression fixtures in source distributions.
 
 ## 0.2.0
 

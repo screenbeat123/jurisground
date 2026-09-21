@@ -1,22 +1,33 @@
 {
+  "description": "SYNTHETIC development fixture. The source and claims are invented for testing; they are not a real legal case or evidence of production use.",
   "sources": [
     {
-      "id": "judgment-1",
-      "text": "The court dismissed the claim because the claimant did not prove the source of the leak or causation. The claimed repair cost was PLN 30 000."
+      "id": "synthetic-case-1",
+      "text": "In this fictional case, art. 471 k.c. applies to a payment of PLN 1 200.",
+      "legal_citation": "art. 471 k.c."
     }
   ],
   "claims": [
     {
       "id": "supported",
-      "text": "The court dismissed the claim because causation was not proven.",
-      "quote": "The court dismissed the claim because the claimant did not prove the source of the leak or causation.",
-      "source_ids": ["judgment-1"]
+      "text": "In this fictional case, art. 471 k.c. applies to a payment of PLN 1 200.",
+      "quote": "In this fictional case, art. 471 k.c. applies to a payment of PLN 1 200.",
+      "source_ids": ["synthetic-case-1"]
     },
     {
-      "id": "fabricated",
-      "text": "The defendant admitted liability for PLN 90 000.",
-      "quote": "The defendant admitted liability for PLN 90 000.",
-      "source_ids": ["judgment-1"]
+      "id": "changed_amount",
+      "text": "In this fictional case, art. 471 k.c. applies to a payment of PLN 9 200.",
+      "quote": "In this fictional case, art. 471 k.c. applies to a payment of PLN 1 200.",
+      "source_ids": ["synthetic-case-1"]
+    },
+    {
+      "id": "changed_citation",
+      "text": "In this fictional case, art. 471 k.p.c. applies to a payment of PLN 1 200.",
+      "quote": "In this fictional case, art. 471 k.c. applies to a payment of PLN 1 200.",
+      "source_ids": ["synthetic-case-1"]
     }
-  ]
+  ],
+  "policy": {
+    "require_legal_citation_match": true
+  }
 }

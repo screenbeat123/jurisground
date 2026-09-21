@@ -74,22 +74,31 @@ Abbreviated failure output:
 {
   "status": "fail",
   "summary": {
-    "total": 1,
-    "pass": 0,
-    "fail": 1,
+    "total": 3,
+    "pass": 1,
+    "fail": 2,
     "unverified": 0
   },
   "claims": [
     {
-      "claim_id": "C1",
+      "claim_id": "supported",
+      "status": "pass",
+      "findings": []
+    },
+    {
+      "claim_id": "changed_amount",
       "status": "fail",
       "findings": [
-        {
-          "code": "quote_not_found"
-        },
-        {
-          "code": "number_not_in_source"
-        }
+        {"code": "number_not_in_quote"},
+        {"code": "number_not_in_source"},
+        {"code": "number_not_in_evidence"}
+      ]
+    },
+    {
+      "claim_id": "changed_citation",
+      "status": "fail",
+      "findings": [
+        {"code": "legal_citation_mismatch"}
       ]
     }
   ]
@@ -99,6 +108,8 @@ Abbreviated failure output:
 ## Python
 
 The main API is `Source`, `Claim`, `Policy`, `verify_claim`, and `verify_batch`. `parse_polish_citations()` and `PolishLegalCitation` provide the optional Polish citation parser.
+
+The [synthetic demo](examples/README.md) runs three claims against one supplied source: a correct match, a changed amount, and a changed legal citation. It uses invented data for development and testing.
 
 A quote match above the similarity threshold also returns `matched_text`, `matched_start`, `matched_end`, and `match_method`. Offsets point to the original page text, even when Unicode or whitespace normalization was needed for the match. `matched_start` is inclusive and `matched_end` is exclusive. `match_method` is `exact`, `normalized`, or `fuzzy`. These fields stay empty when no candidate meets the similarity threshold.
 
@@ -124,7 +135,7 @@ Claims with one or two usable tokens are checked too. Zero lexical overlap alway
 
 Tokens containing only separators, such as `---` or `___`, are not usable claim content. Digit-only integers use the same numeric normalization during lexical scoring, so `00100` and `100` compare equally.
 
-### Unreleased API change
+### Migrating from 0.2.0
 
 `Policy.min_content_stems_for_support` has been removed: claim length can no longer disable the overlap check. Remove that keyword from existing calls. `min_claim_support` still controls the required positive overlap. Passing the removed keyword raises `TypeError`.
 

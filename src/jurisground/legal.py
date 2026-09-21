@@ -27,8 +27,16 @@ _CITATION_RE = re.compile(
     rf"(?:\s+ust\.\s*(?P<subsection>{_NUMBER}))?"
     rf"(?:\s+pkt\s*(?P<point>{_NUMBER}))?"
     rf"(?:\s+lit\.\s*(?P<letter>{_LETTER}))?"
-    rf"(?:\s+(?P<act>{_ACT}))?"
-    rf"(?!\s*[-–—]\s*\d)(?!\s+(?:§|ust\.|pkt|lit\.))",
+    rf"(?:\s+(?P<act>{_ACT}))?",
+    re.IGNORECASE,
+)
+
+_UNSUPPORTED_CONTINUATION_RE = re.compile(
+    r"\w|\s*[-–—−]\s*\d|\s*(?:§|ust\.|pkt\b|lit\.)",
+    re.IGNORECASE,
+)
+_SUFFIX_RANGE_RE = re.compile(
+    r"(?P<separator>\s*[-–—−]\s*)(?!art\.)(?P<suffix>[a-z]+)(?!\w)",
     re.IGNORECASE,
 )
 
@@ -37,6 +45,15 @@ def parse_polish_citations(text: str) -> list[PolishLegalCitation]:
     citations: list[PolishLegalCitation] = []
     for match in _CITATION_RE.finditer(text):
         start, end = match.span()
+        # Validate after matching so rejection cannot backtrack into a shorter unit.
+        if _UNSUPPORTED_CONTINUATION_RE.match(text, end):
+            continue
+        suffix_range = _SUFFIX_RANGE_RE.match(text, end)
+        if suffix_range and match.lastgroup != "act":
+            unit = match.group(match.lastgroup)
+            suffix_length = 2 if match.lastgroup == "letter" else sum(char.isalpha() for char in unit)
+            if len(suffix_range.group("separator")) == 1 or len(suffix_range.group("suffix")) <= suffix_length:
+                continue
         citations.append(
             PolishLegalCitation(
                 raw=text[start:end],

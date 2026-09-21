@@ -114,3 +114,103 @@ def test_paragraph_can_be_followed_directly_by_point_and_letter():
 )
 def test_does_not_silently_truncate_unsupported_or_malformed_citations(text):
     assert parse_polish_citations(text) == []
+
+
+@pytest.mark.parametrize(
+    "reference",
+    [
+        "art. 471",
+        "art. 106gba",
+        "art. 471 § 12a",
+        "art. 471 ust. 12ab",
+        "art. 471 pkt 12abc",
+        "art. 471 lit. aa",
+    ],
+)
+@pytest.mark.parametrize("continuation", ["-472", " – 472", "—472", "−472"])
+def test_rejects_ranges_without_shortening_numbers_or_suffixes(reference, continuation):
+    assert parse_polish_citations(reference + continuation) == []
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "art. 17a-c",
+        "art. 17a-bb",
+        "art. 106gba-gbc",
+        "art. 5 § 12a-bb",
+        "art. 5 ust. 12a-bb",
+        "art. 5 pkt 12a-bb",
+        "art. 5 lit. a-c",
+        "art. 5 lit. aa-ab",
+        "art. 5 lit. a - aa",
+        "art. 471 pkt 12 ust. 2",
+        "art. 471 pkt 12§2",
+        "art. 471§12§2",
+        "art. 471 ust. 12 § 2",
+        "art. 471 lit. ab pkt 2",
+        "art. 471 k.c. ust. 2",
+        "art. 471 ust.",
+        "art. 471 pkt",
+        "art. 471 lit.",
+        "art. 471 lit. abc",
+        "art. 471 lit. a2",
+        "art. 471a2",
+        "art. 471 pkt 12a2",
+        "art. 471_2",
+    ],
+)
+def test_rejects_malformed_continuations_without_returning_a_prefix(text):
+    assert parse_polish_citations(text) == []
+
+
+@pytest.mark.parametrize(
+    "reference",
+    [
+        "art. 471",
+        "art. 106gba",
+        "art. 471§12a",
+        "art. 471 § 12a ust. 12ab pkt 12abc lit. aa k.p.c.",
+        "ART. 471 § 12A UST. 12AB PKT 12ABC LIT. AA K.P.C.",
+    ],
+)
+def test_complete_citations_keep_their_original_span(reference):
+    text = f"Stosuje się {reference}, zgodnie z umową."
+    citations = parse_polish_citations(text)
+    assert len(citations) == 1
+    citation = citations[0]
+    assert citation.raw == reference
+    assert text[citation.start:citation.end] == reference
+
+
+def test_rejected_citation_does_not_hide_a_later_valid_reference():
+    text = "Odrzucono art. 471-472; zastosowano art. 106gba pkt 12a."
+    citations = parse_polish_citations(text)
+    assert [citation.raw for citation in citations] == ["art. 106gba pkt 12a"]
+    citation = citations[0]
+    assert text[citation.start:citation.end] == citation.raw
+
+
+@pytest.mark.parametrize(
+    ("reference", "prose"),
+    [
+        ("art. 471", "– przepis o odpowiedzialności"),
+        ("art. 471", "— to podstawa odpowiedzialności"),
+        ("art. 17a", "– przepis szczególny"),
+        ("art. 106gba", "— określa obowiązki"),
+        ("art. 5 lit. a", "— określa obowiązki"),
+        ("art. 5 lit. aa", "— określa obowiązki"),
+        ("art. 471 k.c.", "— a nie art. 472"),
+    ],
+)
+def test_dash_before_prose_does_not_make_a_complete_citation_a_range(reference, prose):
+    text = f"Stosuje się {reference} {prose}."
+    citation = parse_polish_citations(text)[0]
+    assert citation.raw == reference
+    assert text[citation.start:citation.end] == reference
+
+
+@pytest.mark.parametrize("separator", ["-", " - ", " — "])
+def test_explicit_article_after_a_dash_preserves_both_citations(separator):
+    text = f"art. 106gba{separator}art. 106gbc"
+    assert [citation.raw for citation in parse_polish_citations(text)] == ["art. 106gba", "art. 106gbc"]

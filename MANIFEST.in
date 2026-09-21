@@ -1,1 +1,3 @@
 include evals/adversarial_cases.jsonl
+recursive-include examples *.json *.md
+include docs/releases/0.3.0.md

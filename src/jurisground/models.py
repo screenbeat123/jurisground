@@ -63,10 +63,10 @@ class ClaimResult:
     claim_numbers: list[str] = field(default_factory=list)
     quote_numbers: list[str] = field(default_factory=list)
     source_numbers: list[str] = field(default_factory=list)
-    claim_legal_citation: dict[str, str | None] | None = None
-    evidence_legal_citation: dict[str, str | None] | None = None
     findings: list[Finding] = field(default_factory=list)
     _: KW_ONLY
+    claim_legal_citation: dict[str, str | None] | None = None
+    evidence_legal_citation: dict[str, str | None] | None = None
     evidence_numbers: list[str] | None = None
 
     def to_dict(self) -> dict[str, Any]:

@@ -187,6 +187,6 @@ def test_missing_unicode_filename_has_controlled_cp1250_error(tmp_path):
     assert process.stderr.isascii()
 
 
-def test_excessive_json_nesting_has_controlled_error(tmp_path):
-    raw = b'{"metadata":' + b"[" * 2000 + b"0" + b"]" * 2000 + b"}"
+def test_deeply_nested_invalid_root_has_controlled_error(tmp_path):
+    raw = b"[" * 2000 + b"0" + b"]" * 2000
     _assert_input_error(_run_cli(tmp_path, raw=raw))

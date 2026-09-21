@@ -64,7 +64,9 @@ pip install -e .[dev]
 jurisground examples/legal_grounding_demo.json --pretty
 ```
 
-The CLI exits with `0` only when the whole batch passes. `fail` and `unverified` return a non-zero exit code, which makes the gate usable in CI or agent workflows.
+The CLI reads a UTF-8 JSON object; a UTF-8 BOM is accepted. Optional `sources` and `claims` arrays default to empty, and `policy` defaults to an empty object. Source and claim IDs must be nonempty strings. Text fields and entries in `pages` or `source_ids` must be strings; `is_ocr` and policy switches must be booleans. Numeric policy values must be finite numbers, and `min_quote_chars` must be an integer. Unknown policy options are rejected.
+
+The CLI prints JSON and exits with `0` when the whole batch passes, or `2` for `fail` and `unverified`. Invalid JSON, unreadable files, missing IDs, and invalid field types produce an error on stderr, no JSON output, and exit code `2`. Non-ASCII characters use JSON escapes so output works on Windows consoles; JSON readers recover the original Unicode text.
 
 Abbreviated failure output:
 

@@ -101,9 +101,45 @@ def test_missing_claim_citation_fails_when_required():
     assert "legal_citation_missing" in codes(result)
 
 
+@pytest.mark.parametrize(
+    ("reference", "shortened_metadata"),
+    [
+        ("art. 471-472", "art. 47"),
+        ("art. 17a-17c", "art. 17"),
+        ("art. 5 § 12-14", "art. 5 § 1"),
+        ("art. 5 ust. 12-14", "art. 5 ust. 1"),
+        ("art. 5 pkt 12-14", "art. 5 pkt 1"),
+        ("art. 5 lit. aa-ab", "art. 5 lit. a"),
+        ("art. 471 pkt 12 ust. 2", "art. 47"),
+    ],
+)
+def test_malformed_claim_citation_cannot_bind_to_a_shortened_reference(reference, shortened_metadata):
+    text = f"Zastosowano {reference} do opisanej umowy."
+    result = verify_claim(
+        Claim("C1", text, text, ("S1",)),
+        [Source("S1", text, legal_citation=shortened_metadata)],
+        POLICY,
+    )
+    assert result.status == "fail"
+    assert result.claim_legal_citation is None
+    assert "legal_citation_missing" in codes(result)
+
+
 def test_multiple_claim_citations_are_ambiguous():
     text = "Art. 471 k.c. oraz art. 472 k.c. określają odpowiedzialność dłużnika."
     result = verify_claim(Claim("C1", text, text, ("S1",)), [Source("S1", text, legal_citation="art. 471 k.c.")], POLICY)
+    assert result.status == "fail"
+    assert "legal_citation_ambiguous" in codes(result)
+
+
+@pytest.mark.parametrize("separator", ["-", " - ", " — "])
+def test_dash_between_explicit_articles_cannot_hide_an_ambiguous_claim(separator):
+    text = f"Zastosowano art. 106gba{separator}art. 106gbc do opisanej umowy."
+    result = verify_claim(
+        Claim("C1", text, text, ("S1",)),
+        [Source("S1", text, legal_citation="art. 106gbc")],
+        POLICY,
+    )
     assert result.status == "fail"
     assert "legal_citation_ambiguous" in codes(result)
 

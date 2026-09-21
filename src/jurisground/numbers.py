@@ -70,3 +70,7 @@ def number_tokens(value: str) -> list[str]:
     for match in _NUMBER_RE.finditer(str(value or "")):
         tokens.append(_canonical_number(match.group("sign"), match.group("body")))
     return tokens
+
+
+def _number_spans(value: str) -> list[tuple[int, int]]:
+    return [match.span() for match in _NUMBER_RE.finditer(value)]

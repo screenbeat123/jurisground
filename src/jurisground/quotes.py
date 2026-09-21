@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from bisect import bisect_right
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 
 from .models import Source
 from .normalize import normalize_text, token_text
-from .numbers import number_tokens
+from .numbers import _number_spans, number_tokens
 
 
 _MAX_WINDOWS = 900
@@ -25,6 +26,42 @@ class _QuoteMatch:
     end: int | None = None
     text: str | None = None
     method: str | None = None
+
+
+class _NumericBoundaries:
+    def __init__(self, source: str):
+        self.source = source
+        self.spans = _number_spans(source)
+        self.starts = [start for start, _ in self.spans]
+
+    def cuts_number(self, position: int) -> bool:
+        index = bisect_right(self.starts, position) - 1
+        return index >= 0 and self.spans[index][0] < position < self.spans[index][1]
+
+    def accepts(self, start: int, end: int) -> bool:
+        if self.cuts_number(start) or self.cuts_number(end):
+            return False
+
+        # A cut can also create a number where the full source has an identifier
+        # or an unsupported continuation, so it has no parsed numeric span.
+        source = self.source
+        body_start = start + (source[start:start + 1] in {"+", "-", "\u2212"})
+        if start > 0 and body_start < len(source) and source[body_start].isdecimal():
+            previous = source[start - 1]
+            if previous.isalnum() or previous in {"_", "+", "-", "\u2212"}:
+                return False
+        if 0 < end < len(source):
+            if source[end - 1].isdecimal():
+                if source[end].isalnum() or source[end] == "_":
+                    return False
+                if source[end] in {".", ","} and source[end + 1:end + 2].isdecimal():
+                    return False
+            if (
+                end > 1 and source[end - 1] in {".", ","}
+                and source[end - 2].isdecimal() and source[end].isdecimal()
+            ):
+                return False
+        return True
 
 
 def _normalization_clusters(value: str):
@@ -87,12 +124,16 @@ def _normalized_with_spans(value: str) -> tuple[str, list[tuple[int, int]]]:
     return "".join(chars), spans
 
 
-def _token_spans(value: str) -> list[tuple[str, int, int]]:
+def _token_spans(value: str, numeric_boundaries: _NumericBoundaries | None = None) -> list[tuple[str, int, int]]:
     normalized, source_spans = _normalized_with_spans(value)
     spans: list[tuple[str, int, int]] = []
     for match in re.finditer(r"[\w-]+", normalized, flags=re.UNICODE):
         start = source_spans[match.start()][0]
         end = source_spans[match.end() - 1][1]
+        # Token normalization drops '+', but evidence must keep a numeric sign.
+        if numeric_boundaries and start > 0 and value[start - 1] == "+":
+            if numeric_boundaries.cuts_number(start) and not numeric_boundaries.cuts_number(start - 1):
+                start -= 1
         spans.append((match.group(0), start, end))
     return spans
 
@@ -189,6 +230,7 @@ def _refine_fuzzy_match(
     score: float,
     quote_token_count: int,
     budget: int,
+    numeric_boundaries: _NumericBoundaries | None = None,
 ) -> tuple[_QuoteMatch, int]:
     best = _fuzzy_match(source, source_spans, source_tokens, target, first, last, score)
     used = 0
@@ -206,6 +248,10 @@ def _refine_fuzzy_match(
                 candidate_first = first + delta
                 if candidate_first < 0 or last - candidate_first < 3:
                     continue
+                if numeric_boundaries and not numeric_boundaries.accepts(
+                    source_spans[candidate_first][1], source_spans[last - 1][2],
+                ):
+                    continue
                 candidate = " ".join(source_tokens[candidate_first:last])
                 candidate_score = SequenceMatcher(None, target, candidate).ratio()
                 used += 1
@@ -220,6 +266,10 @@ def _refine_fuzzy_match(
                 candidate_last = last + delta
                 if candidate_last > len(source_spans) or candidate_last - first < 3:
                     continue
+                if numeric_boundaries and not numeric_boundaries.accepts(
+                    source_spans[first][1], source_spans[candidate_last - 1][2],
+                ):
+                    continue
                 candidate = " ".join(source_tokens[first:candidate_last])
                 candidate_score = SequenceMatcher(None, target, candidate).ratio()
                 used += 1
@@ -230,9 +280,12 @@ def _refine_fuzzy_match(
     return best, used
 
 
-def _fuzzy_matches(quote: str, source: str, limit: int | None) -> list[_QuoteMatch]:
+def _fuzzy_matches(
+    quote: str, source: str, limit: int | None,
+    numeric_boundaries: _NumericBoundaries | None = None,
+) -> list[_QuoteMatch]:
     quote_tokens = token_text(quote).split()
-    source_spans = _token_spans(source)
+    source_spans = _token_spans(source, numeric_boundaries)
     if len(quote_tokens) < 3 or not source_spans:
         return []
 
@@ -264,6 +317,14 @@ def _fuzzy_matches(quote: str, source: str, limit: int | None) -> list[_QuoteMat
             (i, min(len(source_spans), i + n))
             for i in range(0, max(1, len(source_spans) - n + 1), step)
         ]
+
+    if numeric_boundaries:
+        def whole_number_window(bounds: tuple[int, int]) -> bool:
+            first, last = bounds
+            return numeric_boundaries.accepts(source_spans[first][1], source_spans[last - 1][2])
+
+        priority_candidates = [bounds for bounds in priority_candidates if whole_number_window(bounds)]
+        coverage_candidates = [bounds for bounds in coverage_candidates if whole_number_window(bounds)]
 
     priority_candidates = list(dict.fromkeys(priority_candidates))
     priority_set = set(priority_candidates)
@@ -306,6 +367,7 @@ def _fuzzy_matches(quote: str, source: str, limit: int | None) -> list[_QuoteMat
             budget = remaining_budget // seed_count_left if seed_count_left else 0
             match, used = _refine_fuzzy_match(
                 source, source_spans, source_tokens, target, first, last, score, n, budget,
+                numeric_boundaries,
             )
             remaining_budget -= used
         else:
@@ -315,16 +377,22 @@ def _fuzzy_matches(quote: str, source: str, limit: int | None) -> list[_QuoteMat
     return sorted(refined, key=lambda match: match.score, reverse=True)
 
 
-def _match_texts(quote: str, source: str, limit: int | None = 1) -> list[_QuoteMatch]:
+def _match_texts(
+    quote: str, source: str, limit: int | None = 1, *,
+    require_numeric_boundaries: bool = False,
+) -> list[_QuoteMatch]:
     q = normalize_text(quote)
     s = normalize_text(source)
     if len(q) < 10 or not s:
         return []
 
+    numeric_boundaries = _NumericBoundaries(source) if require_numeric_boundaries else None
     start = source.find(quote)
-    if start >= 0:
+    while start >= 0:
         end = start + len(quote)
-        return [_QuoteMatch(score=1.0, start=start, end=end, text=source[start:end], method="exact")]
+        if numeric_boundaries is None or numeric_boundaries.accepts(start, end):
+            return [_QuoteMatch(score=1.0, start=start, end=end, text=source[start:end], method="exact")]
+        start = source.find(quote, start + 1)
 
     normalized_source, source_spans = _normalized_with_spans(source)
     pos = normalized_source.find(q)
@@ -332,11 +400,14 @@ def _match_texts(quote: str, source: str, limit: int | None = 1) -> list[_QuoteM
         start = source_spans[pos][0]
         end = source_spans[pos + len(q) - 1][1]
         matched_text = source[start:end]
-        if normalize_text(matched_text) == q:
+        if (
+            (numeric_boundaries is None or numeric_boundaries.accepts(start, end))
+            and normalize_text(matched_text) == q
+        ):
             return [_QuoteMatch(score=1.0, start=start, end=end, text=matched_text, method="normalized")]
         pos = normalized_source.find(q, pos + 1)
 
-    return _fuzzy_matches(quote, source, limit)
+    return _fuzzy_matches(quote, source, limit, numeric_boundaries)
 
 
 def _match_text(quote: str, source: str) -> _QuoteMatch:
@@ -348,11 +419,17 @@ def quote_similarity(quote: str, source: str) -> float:
     return _match_text(quote, source).score
 
 
-def quote_matches(quote: str, sources: list[Source], per_page_limit: int | None = 1) -> list[_QuoteMatch]:
+def quote_matches(
+    quote: str, sources: list[Source], per_page_limit: int | None = 1, *,
+    require_numeric_boundaries: bool = False,
+) -> list[_QuoteMatch]:
     matches: list[_QuoteMatch] = []
     for source in sources:
         for page_index, page_text in enumerate(source.page_texts(), start=1):
-            for match in _match_texts(quote, page_text, per_page_limit):
+            for match in _match_texts(
+                quote, page_text, per_page_limit,
+                require_numeric_boundaries=require_numeric_boundaries,
+            ):
                 if match.text is None:
                     continue
                 matches.append(_QuoteMatch(
@@ -367,6 +444,8 @@ def quote_matches(quote: str, sources: list[Source], per_page_limit: int | None 
     return sorted(matches, key=lambda match: match.score, reverse=True)
 
 
-def best_quote_match(quote: str, sources: list[Source]) -> _QuoteMatch:
-    matches = quote_matches(quote, sources)
+def best_quote_match(
+    quote: str, sources: list[Source], *, require_numeric_boundaries: bool = False,
+) -> _QuoteMatch:
+    matches = quote_matches(quote, sources, require_numeric_boundaries=require_numeric_boundaries)
     return matches[0] if matches else _QuoteMatch()
